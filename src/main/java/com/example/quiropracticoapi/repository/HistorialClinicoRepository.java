@@ -14,7 +14,7 @@ public interface HistorialClinicoRepository extends JpaRepository<HistorialClini
      * @param citaId indetificador de una cita
      * @return historial de la cita
      */
-    Optional<HistorialClinico> findByCitaId(Integer citaId);
+    Optional<HistorialClinico> findByCitaIdCita(Integer citaId);
 
     /**
      * Busca todo el historial clinico de un cliente de
@@ -22,6 +22,6 @@ public interface HistorialClinicoRepository extends JpaRepository<HistorialClini
      * @param clienteId identificador del clinete
      * @return lista de historiales del cliente
      */
-    List<HistorialClinico> findByClienteIdOrderByFechaSesionDesc(Integer clienteId);
+    List<HistorialClinico> findByClienteIdClienteOrderByFechaSesionDesc(Integer clienteId);
 
 }

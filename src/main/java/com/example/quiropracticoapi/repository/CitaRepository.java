@@ -14,14 +14,14 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param clienteId identificador del cliente
      * @return lista de citas
      */
-    List<Cita> findByClienteId(Integer clienteId);
+    List<Cita> findByClienteIdCliente(Integer clienteId);
 
     /**
      * Busca las citas de un quiropráctico
      * @param quiropracticoId identificador del quiropráctico
      * @return lista de citas
      */
-    List<Cita> findByQuiropracticoId( Integer quiropracticoId);
+    List<Cita> findByQuiropracticoIdUsuario( Integer quiropracticoId);
 
     /**
      * Busca las citas de un quiropractico entre el rango de dos fechas
@@ -30,13 +30,13 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param fechaFin segunda fecha
      * @return lista de citas
      */
-    List<Cita> findByQuiropracticoIdAndFechaHoraInicioBetween(Integer quiropracticoId, LocalDateTime fechaInicio, LocalDateTime fechaFin);
+    List<Cita> findByQuiropracticoIdUsuarioAndFechaHoraInicioBetween(Integer quiropracticoId, LocalDateTime fechaInicio, LocalDateTime fechaFin);
 
     /**
      * Busca todas las citas (de cualquier quiropractico) entre un rango de fechas
      * @param fechaInicio primera fecha
      * @param fechaFin segunda fecha
-     * @return
+     * @return lista de citas
      */
     List<Cita> findByFechaHoraInicioBetween(LocalDateTime fechaInicio, LocalDateTime fechaFin);
 }

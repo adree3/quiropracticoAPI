@@ -13,13 +13,11 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
      * @param clienteId identificador del cliente
      * @return lista de bonos, gastados o no
      */
-    List<BonoActivo> findByClienteId(Integer clienteId);
-
+    List<BonoActivo> findByClienteIdCliente(Integer clienteId);
     /**
      * Busca los bonos de un cliente según las sesiones que tenga
      * @param clienteId indetificador del cliente
      * @param sesiones numero de sesiones (normalmente 0)
      * @return lista de bonos con x sesiones
      */
-    List<BonoActivo> findByClienteIdAndSesionesRestantesGreaterThan(Integer clienteId, int sesiones);
-}
+    List<BonoActivo> findByClienteIdClienteAndSesionesRestantesGreaterThan(Integer clienteId, int sesiones);}

@@ -14,7 +14,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      * @param clienteId identificador del cliente
      * @return lista de pagos
      */
-    List<Pago> findByClienteId(Integer clienteId);
+    List<Pago> findByClienteIdCliente(Integer clienteId);
 
     /**
      * Busca todos los pagos realizzados en un rango de fechas
