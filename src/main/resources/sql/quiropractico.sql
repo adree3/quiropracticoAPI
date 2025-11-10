@@ -26,7 +26,7 @@ DROP TABLE IF EXISTS `horarios`;
 CREATE TABLE `horarios` (
   `id_horario` INT NOT NULL AUTO_INCREMENT,
   `id_usuario_quiro` INT NOT NULL COMMENT 'FK a usuarios (solo rol quiropráctico)',
-  `dia_semana` TINYINT(1) NOT NULL COMMENT '1=Lunes, 2=Martes, ... 7=Domingo',
+  `dia_semana` TINYINT NOT NULL COMMENT '1=Lunes, 2=Martes, ... 7=Domingo',
   `hora_inicio` TIME NOT NULL,
   `hora_fin` TIME NOT NULL,
   PRIMARY KEY (`id_horario`),
