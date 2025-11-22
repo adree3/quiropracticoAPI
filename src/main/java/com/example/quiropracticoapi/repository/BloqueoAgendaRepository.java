@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface BloqueoAgendadoRepository extends JpaRepository<BloqueoAgenda, Integer> {
+public interface BloqueoAgendaRepository extends JpaRepository<BloqueoAgenda, Integer> {
     /**
      * Busca los bloqueos que tenga un quiropráctico entre dos rangos
      * @param quiroId indetificador del quiropráctico

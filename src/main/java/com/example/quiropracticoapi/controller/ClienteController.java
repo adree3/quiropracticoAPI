@@ -95,4 +95,15 @@ public class ClienteController {
         List<ClienteDto> clientes = clienteService.searchClientesByApellidos(textoApellidos);
         return ResponseEntity.ok(clientes);
     }
+
+    // POST /api/clientes/1/familiares?idBeneficiario=2&relacion=Hijo
+    @PostMapping("/{idPropietario}/familiares")
+    public ResponseEntity<Void> agregarFamiliar(
+            @PathVariable Integer idPropietario,
+            @RequestParam Integer idBeneficiario,
+            @RequestParam String relacion
+    ) {
+        clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion);
+        return ResponseEntity.ok().build();
+    }
 }

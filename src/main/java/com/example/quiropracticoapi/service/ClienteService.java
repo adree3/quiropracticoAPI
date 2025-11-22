@@ -50,4 +50,11 @@ public interface ClienteService {
      * @return Lista de clientes que coinciden.
      */
     List<ClienteDto> searchClientesByApellidos(String textoApellidos);
-}
+
+    /**
+     * Vincula dos clientes en un grupo familiar.
+     * @param idPropietario El dueño de los bonos.
+     * @param idBeneficiario Quien podrá usarlos.
+     * @param relacion Texto descriptivo (ej. "Hijo", "Pareja").
+     */
+    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);}

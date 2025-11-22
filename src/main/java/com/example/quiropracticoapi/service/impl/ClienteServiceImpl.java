@@ -6,7 +6,9 @@ import com.example.quiropracticoapi.dto.ClienteRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.ClienteMapper;
 import com.example.quiropracticoapi.model.Cliente;
+import com.example.quiropracticoapi.model.GrupoFamiliar;
 import com.example.quiropracticoapi.repository.ClienteRepository;
+import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.ClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,11 +20,14 @@ import java.util.stream.Collectors;
 public class ClienteServiceImpl implements ClienteService {
     private final ClienteRepository clienteRepository;
     private final ClienteMapper clienteMapper;
+    private final GrupoFamiliarRepository grupoFamiliarRepository;
+
 
     @Autowired
-    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper) {
+    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper, GrupoFamiliarRepository grupoFamiliarRepository) {
         this.clienteRepository = clienteRepository;
         this.clienteMapper = clienteMapper;
+        this.grupoFamiliarRepository = grupoFamiliarRepository;
     }
 
 
@@ -77,5 +82,32 @@ public class ClienteServiceImpl implements ClienteService {
                 .stream()
                 .map(clienteMapper::toClienteDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion) {
+        if (idPropietario.equals(idBeneficiario)) {
+            throw new IllegalArgumentException("Un cliente no puede ser familiar de sí mismo.");
+        }
+        Cliente propietario = clienteRepository.findById(idPropietario)
+                .orElseThrow(() -> new ResourceNotFoundException("Propietario no encontrado con id: " + idPropietario));
+
+        Cliente beneficiario = clienteRepository.findById(idBeneficiario)
+                .orElseThrow(() -> new ResourceNotFoundException("Beneficiario no encontrado con id: " + idBeneficiario));
+
+        if (grupoFamiliarRepository.existsByPropietarioIdClienteAndBeneficiarioIdCliente(idPropietario, idBeneficiario)) {
+            throw new IllegalArgumentException("Esta relación familiar ya existe.");
+        }
+        GrupoFamiliar grupo = new GrupoFamiliar();
+        grupo.setPropietario(propietario);
+        grupo.setBeneficiario(beneficiario);
+        grupo.setRelacion(relacion);
+
+        grupoFamiliarRepository.save(grupo);
+    }
+
+    private Cliente getClienteByIdEntity(Integer id) {
+        return clienteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + id));
     }
 }

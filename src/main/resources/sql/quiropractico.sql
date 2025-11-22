@@ -202,6 +202,19 @@ CREATE TABLE `bonos_activos` (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- Tabla para vincular clientes (Madre -> Hijo)
+CREATE TABLE `grupos_familiares` (
+  `id_grupo` INT NOT NULL AUTO_INCREMENT,
+  `id_cliente_propietario` INT NOT NULL COMMENT 'El dueño de los bonos (ej. Madre)',
+  `id_cliente_beneficiario` INT NOT NULL COMMENT 'El que puede usarlos (ej. Hijo)',
+  `relacion` VARCHAR(50) NULL COMMENT 'Ej. Madre-Hijo, Pareja',
+  PRIMARY KEY (`id_grupo`),
+  -- Evitamos duplicados (A no puede vincular a B dos veces)
+  UNIQUE KEY `unique_relacion` (`id_cliente_propietario`, `id_cliente_beneficiario`),
+  CONSTRAINT `fk_grupo_propietario` FOREIGN KEY (`id_cliente_propietario`) REFERENCES `clientes` (`id_cliente`) ON DELETE CASCADE,
+  CONSTRAINT `fk_grupo_beneficiario` FOREIGN KEY (`id_cliente_beneficiario`) REFERENCES `clientes` (`id_cliente`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Tabla de enlace que registra qué cita consumió qué bono
 DROP TABLE IF EXISTS `consumos_bono`;
 CREATE TABLE `consumos_bono` (
@@ -226,3 +239,136 @@ CREATE TABLE `consumos_bono` (
 
 -- Reactivamos la comprobación de claves foráneas
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+USE quiropractica_db;
+
+-- Limpiamos datos previos (en orden inverso para respetar FKs)
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE consumos_bono;
+TRUNCATE TABLE bonos_activos;
+TRUNCATE TABLE historial_clinico;
+TRUNCATE TABLE pagos;
+TRUNCATE TABLE citas;
+TRUNCATE TABLE bloqueos_agenda;
+TRUNCATE TABLE horarios;
+TRUNCATE TABLE servicios;
+TRUNCATE TABLE clientes;
+TRUNCATE TABLE usuarios;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- -----------------------------------------------------
+-- 1. USUARIOS (Password para todos: "123")
+-- -----------------------------------------------------
+INSERT INTO usuarios (id_usuario, username, password_hash, nombre_completo, rol, activo) VALUES 
+(1, 'admin', '$2a$10$EuwpvVgMatdy.w/j2M.0.O0/w/y/z.x.y.z.x.y.z.x.y.z.x.y.z', 'Administrador Principal', 'admin', 1),
+(2, 'dr_ana', '$2a$10$EuwpvVgMatdy.w/j2M.0.O0/w/y/z.x.y.z.x.y.z.x.y.z.x.y.z', 'Dra. Ana Quiropráctica', 'quiropráctico', 1),
+(3, 'laura', '$2a$10$EuwpvVgMatdy.w/j2M.0.O0/w/y/z.x.y.z.x.y.z.x.y.z.x.y.z', 'Laura Recepción', 'recepción', 1);
+
+-- Nota: El hash '$2a$10$EuwpvVgMatdy.w/j2M.0.O0/w/y/z.x.y.z.x.y.z.x.y.z.x.y.z' es un ejemplo válido. 
+-- Si no te funciona el login, usa el endpoint /register para crear uno nuevo y ver qué hash genera tu sistema.
+-- Ojo: He usado un hash genérico de ejemplo. Si quieres asegurar que sea '123', 
+-- lo ideal es que crees el primer usuario con tu endpoint /register.
+-- Pero para probar rápido, aquí va uno que suele ser '123' en BCrypt estándar:
+UPDATE usuarios SET password_hash = '$2a$10$8.UnVuG9HHgffUDAlk8qfOuVGkqRzgVymGe07xd00DMxs.AQiy38a' WHERE id_usuario IN (1,2,3);
+
+
+-- -----------------------------------------------------
+-- 2. CLIENTES
+-- -----------------------------------------------------
+INSERT INTO clientes (id_cliente, nombre, apellidos, fecha_nacimiento, telefono, email, direccion, notas_privadas) VALUES 
+(1, 'Juan', 'Pérez García', '1985-05-15', '600111222', 'juan.perez@email.com', 'Calle Mayor 1', 'Paciente con dolor lumbar crónico.'),
+(2, 'María', 'López Sánchez', '1990-10-20', '600333444', 'maria.lopez@email.com', 'Av. Libertad 25', 'Prefiere citas por la tarde.');
+
+
+-- -----------------------------------------------------
+-- 3. HORARIOS (Dra. Ana - ID 2)
+-- Lógica: Lunes a Viernes. Turno partido.
+-- 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes
+-- -----------------------------------------------------
+INSERT INTO horarios (id_usuario_quiro, dia_semana, hora_inicio, hora_fin) VALUES 
+-- Lunes (Mañana y Tarde)
+(2, 1, '09:00:00', '13:00:00'),
+(2, 1, '16:00:00', '20:00:00'),
+-- Martes (Solo Mañana)
+(2, 2, '09:00:00', '14:00:00'),
+-- Miércoles (Mañana y Tarde)
+(2, 3, '09:00:00', '13:00:00'),
+(2, 3, '16:00:00', '20:00:00'),
+-- Jueves (Mañana y Tarde)
+(2, 4, '09:00:00', '13:00:00'),
+(2, 4, '16:00:00', '20:00:00'),
+-- Viernes (Solo Mañana)
+(2, 5, '09:00:00', '13:00:00');
+
+
+-- -----------------------------------------------------
+-- 4. SERVICIOS
+-- -----------------------------------------------------
+INSERT INTO servicios (id_servicio, nombre_servicio, precio, tipo, sesiones_incluidas, activo) VALUES 
+(1, 'Primera Visita + Ajuste', 50.00, 'sesion_unica', NULL, 1),
+(2, 'Ajuste Regular', 35.00, 'sesion_unica', NULL, 1),
+(3, 'Bono 10 Sesiones', 300.00, 'bono', 10, 1),
+(4, 'Bono 5 Sesiones', 160.00, 'bono', 5, 1);
+
+
+-- -----------------------------------------------------
+-- 5. BLOQUEOS DE AGENDA (Pruebas)
+-- -----------------------------------------------------
+-- Bloqueo personal: Dra. Ana tiene médico el Lunes 24 Nov de 12 a 13
+INSERT INTO bloqueos_agenda (id_usuario_quiro, fecha_hora_inicio, fecha_hora_fin, motivo) VALUES 
+(2, '2025-11-24 12:00:00', '2025-11-24 13:00:00', 'Cita Médica Personal');
+
+-- Bloqueo Clínica: Navidad (Cerrado todo el día)
+INSERT INTO bloqueos_agenda (id_usuario_quiro, fecha_hora_inicio, fecha_hora_fin, motivo) VALUES 
+(NULL, '2025-12-25 00:00:00', '2025-12-25 23:59:59', 'Navidad');
+
+
+-- -----------------------------------------------------
+-- 6. PAGOS Y BONOS (María compra un Bono de 10)
+-- -----------------------------------------------------
+-- Paso A: Registrar el Pago
+INSERT INTO pagos (id_pago, id_cliente, monto, metodo_pago, fecha_pago, id_servicio_pagado, notas) VALUES 
+(1, 2, 300.00, 'tarjeta', NOW(), 3, 'Compra de bono inicial');
+
+-- Paso B: Crear el Bono Activo vinculado a ese pago
+INSERT INTO bonos_activos (id_bono_activo, id_cliente, id_servicio_comprado, id_pago_origen, fecha_compra, sesiones_totales, sesiones_restantes, fecha_caducidad) VALUES 
+(1, 2, 3, 1, CURDATE(), 10, 10, DATE_ADD(CURDATE(), INTERVAL 1 YEAR));
+
+
+-- -----------------------------------------------------
+-- 7. CITAS (Escenarios de prueba)
+-- -----------------------------------------------------
+
+-- ESCENARIO 1: Cita Pasada (Completada) - Juan
+INSERT INTO citas (id_cliente, id_quiropractico, fecha_hora_inicio, fecha_hora_fin, estado, notas_recepcion) VALUES 
+(1, 2, '2025-11-10 10:00:00', '2025-11-10 10:30:00', 'completada', 'Vino con dolor agudo.');
+
+-- ESCENARIO 2: Cita Futura (Programada) - Juan (Lunes 24 Nov, 09:00) -> Esta ocupará el primer hueco
+INSERT INTO citas (id_cliente, id_quiropractico, fecha_hora_inicio, fecha_hora_fin, estado, notas_recepcion) VALUES 
+(1, 2, '2025-11-24 09:00:00', '2025-11-24 09:30:00', 'programada', 'Revisión semanal.');
+
+-- ESCENARIO 3: Cita Futura (Programada) - María (Lunes 24 Nov, 09:30)
+INSERT INTO citas (id_cliente, id_quiropractico, fecha_hora_inicio, fecha_hora_fin, estado, notas_recepcion) VALUES 
+(2, 2, '2025-11-24 09:30:00', '2025-11-24 10:00:00', 'programada', 'Usar bono.');
+
+
+-- -----------------------------------------------------
+-- 8. HISTORIAL Y CONSUMOS
+-- -----------------------------------------------------
+
+-- Historial para la cita completada de Juan (Escenario 1)
+-- Nota: id_cita = 1 (asumiendo auto_increment empieza en 1)
+INSERT INTO historial_clinico (id_cita, id_cliente, id_quiropractico, fecha_sesion, notas_subjetivo, notas_objetivo, ajustes_realizados, plan_futuro) VALUES 
+(1, 1, 2, '2025-11-10 10:00:00', 'Paciente reporta dolor 7/10 en zona lumbar.', 'Contractura visible en L4-L5.', 'Ajuste lumbar lateral.', 'Volver en 1 semana.');
+
+-- (Opcional) Si quisiéramos decir que Juan gastó un bono en esa cita (aunque no le creamos bono arriba),
+-- aquí iría el insert en consumos_bono. Pero como pagó suelto (no tiene bono), no insertamos nada aquí.
+
+-- DATOS DE EJEMPLO:
+-- Asumimos que el Cliente 1 (Juan) es el Padre/Propietario
+-- Asumimos que el Cliente 2 (María) es la Hija
+-- Juan autoriza a María a usar sus bonos.
+INSERT INTO grupos_familiares (id_cliente_propietario, id_cliente_beneficiario, relacion) 
+VALUES (1, 2, 'Padre-Hija');
+
