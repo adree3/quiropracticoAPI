@@ -47,15 +47,18 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param quiroId identificador quiropractico.
      * @param nuevoInicio fecha inicio comprobar
      * @param nuevoFin fecha fin comprobar
+     * @param idExcluir cita a excluir de la busqueda
      * @return lista de citas de ese rango
      */
     @Query("SELECT c FROM Cita c WHERE c.quiropractico.idUsuario = :quiroId " +
             "AND c.estado != 'cancelada' " +
             "AND c.fechaHoraInicio < :nuevoFin " +
-            "AND c.fechaHoraFin > :nuevoInicio")
+            "AND c.fechaHoraFin > :nuevoInicio " +
+            "AND (:idExcluir IS NULL OR c.idCita != :idExcluir)")
     List<Cita> findCitasConflictivas(
             @Param("quiroId") Integer quiroId,
             @Param("nuevoInicio") LocalDateTime nuevoInicio,
-            @Param("nuevoFin") LocalDateTime nuevoFin
+            @Param("nuevoFin") LocalDateTime nuevoFin,
+            @Param("idExcluir") Integer idExcluir
     );
 }

@@ -17,13 +17,14 @@ public class CitaRequestDto {
     private Integer idQuiropractico;
 
     @NotNull(message = "La fecha de inicio es obligatoria")
-    @Future(message = "La cita debe ser en el futuro")
     private LocalDateTime fechaHoraInicio;
 
     @NotNull(message = "La fecha de fin es obligatoria")
     private LocalDateTime fechaHoraFin;
 
     private String notasRecepcion;
+
+    private String estado;
 
     private Integer idBonoAUtilizar;
     // Si viene NULL -> Lógica automática (usar el mío más antiguo).

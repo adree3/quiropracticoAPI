@@ -66,6 +66,11 @@ public class CitaController {
         return ResponseEntity.ok(cita);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<CitaDto> updateCita(@PathVariable Integer id, @Valid @RequestBody CitaRequestDto request) {
+        return ResponseEntity.ok(citaService.updateCita(id, request));
+    }
+
     // Cancelar Cita
     @Operation(summary = "Cancelar una cita", description = "Cambia el estado de la cita a 'cancelada'. No la borra de la base de datos.")
     @PutMapping("/{idCita}/cancelar")

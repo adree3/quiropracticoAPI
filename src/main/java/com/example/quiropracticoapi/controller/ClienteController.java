@@ -9,6 +9,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,14 +30,22 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
-    @Operation(summary = "Obtener todos los clientes", description = "Devuelve una lista de todos los clientes en la base de datos")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Clientes encontrados exitosamente")
-    })
-    @GetMapping
-    public ResponseEntity<List<ClienteDto>> getAllClientes() {
-        List<ClienteDto> clientes = clienteService.getAllClientes();
-        return ResponseEntity.ok(clientes);
+    @Operation(summary = "Obtener clientes paginados", description = "Devuelve una lista paginada de clientes.")
+    @GetMapping // Se mantiene el mapeo base
+    public ResponseEntity<Page<ClienteDto>> getAllClientes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "idCliente") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
+    ) {
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ClienteDto> clientesPage = clienteService.getAllClientes(pageable);
+        return ResponseEntity.ok(clientesPage);
     }
 
     @Operation(summary = "Obtener un cliente por su ID", description = "Devuelve un cliente específico buscado por su ID.")

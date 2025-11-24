@@ -20,5 +20,5 @@ public interface CitaService {
 
     CitaDto cambiarEstado(Integer idCita, EstadoCita nuevoEstado);
 
-
+    CitaDto updateCita(Integer idCita, CitaRequestDto request);
 }

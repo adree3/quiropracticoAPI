@@ -50,7 +50,7 @@ public class CitaServiceImpl implements CitaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
 
         // VALIDACIONES DE NEGOCIO
-        validarDisponibilidad(quiro, request);
+        validarDisponibilidad(quiro, request, null);
 
         Cita cita = citaMapper.toEntity(request, cliente, quiro);
         Cita citaGuardada = citaRepository.save(cita);
@@ -60,7 +60,7 @@ public class CitaServiceImpl implements CitaService {
         return citaMapper.toDto(citaGuardada);
     }
 
-    private void validarDisponibilidad(Usuario quiro, CitaRequestDto request) {
+    private void validarDisponibilidad(Usuario quiro, CitaRequestDto request, Integer idCitaExcluir) {
         if (request.getFechaHoraFin().isBefore(request.getFechaHoraInicio())) {
             throw new IllegalArgumentException("La fecha de fin no puede ser anterior a la de inicio");
         }
@@ -97,8 +97,11 @@ public class CitaServiceImpl implements CitaService {
         }
 
         List<Cita> citasSolapadas = citaRepository.findCitasConflictivas(
-                quiro.getIdUsuario(), request.getFechaHoraInicio(), request.getFechaHoraFin()
-        );
+                quiro.getIdUsuario(),
+                request.getFechaHoraInicio(),
+                request.getFechaHoraFin(),
+                idCitaExcluir
+        );;
 
         if (!citasSolapadas.isEmpty()) {
             throw new IllegalArgumentException("Ya existe una cita reservada en ese horario (conflicto de horario).");
@@ -108,7 +111,7 @@ public class CitaServiceImpl implements CitaService {
     private void gestionarConsumoBono(Cita cita, Cliente cliente, Integer idBonoForzado) {
         BonoActivo bonoAUtilizar = null;
 
-        // OPCIÓN A: Bono elegido a dedo
+        // Bono elegido
         if (idBonoForzado != null) {
             BonoActivo bono = bonoActivoRepository.findById(idBonoForzado)
                     .orElseThrow(() -> new IllegalArgumentException("El bono seleccionado no existe"));
@@ -129,11 +132,9 @@ public class CitaServiceImpl implements CitaService {
             bonoAUtilizar = bono;
 
         } else {
-            // OPCIÓN B: Automático
             // Buscamos el bono más antiguo disponible (propio o de familia)
             List<BonoActivo> bonosDisponibles = bonoActivoRepository
                     .findBonosDisponiblesParaCliente(cliente.getIdCliente());
-
             if (!bonosDisponibles.isEmpty()) {
                 bonoAUtilizar = bonosDisponibles.getFirst();
             }
@@ -143,11 +144,9 @@ public class CitaServiceImpl implements CitaService {
         if (bonoAUtilizar != null) {
             bonoAUtilizar.setSesionesRestantes(bonoAUtilizar.getSesionesRestantes() - 1);
             bonoActivoRepository.save(bonoAUtilizar);
-
             ConsumoBono consumo = new ConsumoBono();
             consumo.setCita(cita);
             consumo.setBonoActivo(bonoAUtilizar);
-
             consumoBonoRepository.save(consumo);
         }
     }
@@ -188,5 +187,36 @@ public class CitaServiceImpl implements CitaService {
         cita.setEstado(nuevoEstado);
         Cita citaGuardada = citaRepository.save(cita);
         return citaMapper.toDto(citaGuardada);
+    }
+
+    @Override
+    @Transactional
+    public CitaDto updateCita(Integer idCita, CitaRequestDto request) {
+        Cita cita = citaRepository.findById(idCita)
+                .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+
+        Usuario quiro = usuarioRepository.findById(request.getIdQuiropractico())
+                .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
+        Cliente cliente = clienteRepository.findById(request.getIdCliente())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        validarDisponibilidad(quiro, request, idCita);
+
+        cita.setQuiropractico(quiro);
+        cita.setCliente(cliente);
+        cita.setFechaHoraInicio(request.getFechaHoraInicio());
+        cita.setFechaHoraFin(request.getFechaHoraFin());
+        cita.setNotasRecepcion(request.getNotasRecepcion());
+
+        if (request.getEstado() != null) {
+            try {
+                cita.setEstado(EstadoCita.valueOf(request.getEstado().toLowerCase()));
+            } catch (IllegalArgumentException e) {
+                System.out.println("Error"+ e.getMessage());
+            }
+        }
+
+        Cita actualizada = citaRepository.save(cita);
+        return citaMapper.toDto(actualizada);
     }
 }

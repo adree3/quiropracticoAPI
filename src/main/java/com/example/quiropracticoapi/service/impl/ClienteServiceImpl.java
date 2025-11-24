@@ -10,6 +10,8 @@ import com.example.quiropracticoapi.model.GrupoFamiliar;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.ClienteService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -32,11 +34,9 @@ public class ClienteServiceImpl implements ClienteService {
 
 
     @Override
-    public List<ClienteDto> getAllClientes() {
-        return clienteRepository.findAll()
-                .stream()
-                .map(clienteMapper::toClienteDto)
-                .collect(Collectors.toList());
+    public Page<ClienteDto> getAllClientes(Pageable pageable) {
+        Page<Cliente> paginaClientes = clienteRepository.findAll(pageable);
+        return paginaClientes.map(clienteMapper::toClienteDto);
     }
 
     @Override

@@ -3,6 +3,8 @@ package com.example.quiropracticoapi.service;
 import com.example.quiropracticoapi.dto.ClienteDto;
 import com.example.quiropracticoapi.dto.ClienteRequestDto;
 import com.example.quiropracticoapi.model.Cliente;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -11,7 +13,7 @@ public interface ClienteService {
      * Obtiene una lista de todos los clientes.
      * @return Lista de DTOs de clientes.
      */
-    List<ClienteDto> getAllClientes();
+    Page<ClienteDto> getAllClientes(Pageable pageable);
 
     /**
      * Busca un cliente por su ID.
@@ -57,4 +59,8 @@ public interface ClienteService {
      * @param idBeneficiario Quien podrá usarlos.
      * @param relacion Texto descriptivo (ej. "Hijo", "Pareja").
      */
-    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);}
+    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);
+
+
+
+}
