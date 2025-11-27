@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.service.impl;
 
 import com.example.quiropracticoapi.dto.CitaDto;
 import com.example.quiropracticoapi.dto.CitaRequestDto;
+import com.example.quiropracticoapi.dto.HuecoDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.CitaMapper;
 import com.example.quiropracticoapi.model.*;
@@ -13,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -218,5 +222,71 @@ public class CitaServiceImpl implements CitaService {
 
         Cita actualizada = citaRepository.save(cita);
         return citaMapper.toDto(actualizada);
+    }
+
+    @Override
+    public List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir) {
+        List<HuecoDto> huecosLibres = new ArrayList<>();
+        int duracionCitaMinutos = 30;
+
+        int diaSemana = fecha.getDayOfWeek().getValue();
+        List<Horario> horarios = horarioRepository.findByQuiropracticoIdUsuarioAndDiaSemana(idQuiro, (byte) diaSemana);
+
+        if (horarios.isEmpty()) return huecosLibres;
+
+
+        List<Cita> citasDelDia = citaRepository.findByQuiropracticoIdUsuarioAndFechaHoraInicioBetween(
+                idQuiro, fecha.atStartOfDay(), fecha.atTime(23, 59, 59));
+
+        List<BloqueoAgenda> bloqueosDelDia = bloqueoAgendaRepository.findBloqueosPersonalesQueSolapan(
+                idQuiro, fecha.atStartOfDay(), fecha.atTime(23, 59, 59));
+
+        for (Horario turno : horarios) {
+            LocalTime cursor = turno.getHoraInicio();
+
+            while (cursor.plusMinutes(duracionCitaMinutos).isBefore(turno.getHoraFin()) ||
+                    cursor.plusMinutes(duracionCitaMinutos).equals(turno.getHoraFin())) {
+
+                LocalTime finCita = cursor.plusMinutes(duracionCitaMinutos);
+
+                if (esHuecoValido(fecha, cursor, finCita, citasDelDia, bloqueosDelDia, idCitaExcluir)) {
+                    huecosLibres.add(new HuecoDto(
+                            cursor.toString(),
+                            finCita.toString(),
+                            cursor + " - " + finCita
+                    ));
+                }
+
+                cursor = cursor.plusMinutes(duracionCitaMinutos);
+            }
+        }
+
+        huecosLibres.sort(Comparator.comparing(HuecoDto::getHoraInicio));
+
+        return huecosLibres;
+    }
+
+    private boolean esHuecoValido(LocalDate fecha, LocalTime inicio, LocalTime fin, List<Cita> citas, List<BloqueoAgenda> bloqueos, Integer idExcluir) {
+        LocalDateTime inicioHueco = LocalDateTime.of(fecha, inicio);
+        LocalDateTime finHueco = LocalDateTime.of(fecha, fin);
+
+        for (Cita c : citas) {
+            if (c.getIdCita().equals(idExcluir)) {
+                continue;
+            }
+            if (c.getEstado() != EstadoCita.cancelada) {
+                if (inicioHueco.isBefore(c.getFechaHoraFin()) && finHueco.isAfter(c.getFechaHoraInicio())) {
+                    return false;
+                }
+            }
+        }
+
+        for (BloqueoAgenda b : bloqueos) {
+            if (inicioHueco.isBefore(b.getFechaHoraFin()) && finHueco.isAfter(b.getFechaHoraInicio())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

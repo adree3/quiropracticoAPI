@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.CitaDto;
 import com.example.quiropracticoapi.dto.CitaRequestDto;
+import com.example.quiropracticoapi.dto.HuecoDto;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
 import com.example.quiropracticoapi.service.CitaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -87,5 +88,14 @@ public class CitaController {
 
         CitaDto citaActualizada = citaService.cambiarEstado(idCita, nuevoEstado);
         return ResponseEntity.ok(citaActualizada);
+    }
+
+    @GetMapping("/disponibilidad")
+    public ResponseEntity<List<HuecoDto>> getHuecos(
+            @RequestParam Integer idQuiro,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(required = false) Integer idCitaExcluir
+    ) {
+        return ResponseEntity.ok(citaService.getHuecosDisponibles(idQuiro, fecha, idCitaExcluir));
     }
 }

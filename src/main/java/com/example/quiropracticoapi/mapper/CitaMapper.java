@@ -18,6 +18,7 @@ public class CitaMapper {
         dto.setIdCita(cita.getIdCita());
         dto.setIdCliente(cita.getCliente().getIdCliente());
         dto.setNombreClienteCompleto(cita.getCliente().getNombre() + " " + cita.getCliente().getApellidos());
+        dto.setTelefonoCliente(cita.getCliente().getTelefono());
 
         dto.setIdQuiropractico(cita.getQuiropractico().getIdUsuario());
         dto.setNombreQuiropractico(cita.getQuiropractico().getNombreCompleto());

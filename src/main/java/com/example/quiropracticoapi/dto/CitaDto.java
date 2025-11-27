@@ -12,6 +12,7 @@ public class CitaDto {
     private Integer idCita;
     private Integer idCliente;
     private String nombreClienteCompleto;
+    private String telefonoCliente;
     private Integer idQuiropractico;
     private String nombreQuiropractico;
     private LocalDateTime fechaHoraInicio;
