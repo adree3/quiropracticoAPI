@@ -2,6 +2,8 @@ package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.ClienteDto;
 import com.example.quiropracticoapi.dto.ClienteRequestDto;
+import com.example.quiropracticoapi.dto.FamiliarDto;
+import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.ClienteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,16 +20,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/clientes")
 @Tag(name = "Gestión de Clientes", description = "API para el CRUD de clientes")
 public class ClienteController {
     private final ClienteService clienteService;
+    private final GrupoFamiliarRepository grupoFamiliarRepository;
+
 
     @Autowired
-    public ClienteController(ClienteService clienteService) {
+    public ClienteController(ClienteService clienteService, GrupoFamiliarRepository grupoFamiliarRepository) {
         this.clienteService = clienteService;
+        this.grupoFamiliarRepository = grupoFamiliarRepository;
     }
 
     @Operation(summary = "Obtener clientes paginados", description = "Devuelve una lista paginada de clientes.")
@@ -96,18 +102,6 @@ public class ClienteController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Buscar clientes por apellido", description = "Devuelve una lista de clientes cuyo apellido contenga el texto buscado.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Búsqueda completada (puede devolver lista vacía)")
-    })
-    @GetMapping("/buscar")
-    public ResponseEntity<List<ClienteDto>> searchClientes(
-            @RequestParam("apellidos") String textoApellidos) {
-
-        List<ClienteDto> clientes = clienteService.searchClientesByApellidos(textoApellidos);
-        return ResponseEntity.ok(clientes);
-    }
-
     // POST /api/clientes/1/familiares?idBeneficiario=2&relacion=Hijo
     @PostMapping("/{idPropietario}/familiares")
     public ResponseEntity<Void> agregarFamiliar(
@@ -117,5 +111,59 @@ public class ClienteController {
     ) {
         clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Obtiene a la gente que ha autorizado el cliente a usar sus bonos
+     * @param id identificador cliente
+     * @return lista de familiares del cliente
+     */
+    @GetMapping("/{id}/familiares")
+    public ResponseEntity<List<FamiliarDto>> getFamiliares(@PathVariable Integer id) {
+
+        return ResponseEntity.ok(
+                grupoFamiliarRepository.findByPropietarioIdCliente(id).stream()
+                        .map(g -> {
+                            FamiliarDto dto = new FamiliarDto();
+                            dto.setIdGrupo(g.getIdGrupo());
+                            dto.setIdFamiliar(g.getBeneficiario().getIdCliente());
+                            dto.setNombreCompleto(g.getBeneficiario().getNombre() + " " + g.getBeneficiario().getApellidos());
+                            dto.setRelacion(g.getRelacion());
+                            return dto;
+                        })
+                        .collect(Collectors.toList())
+        );
+    }
+
+    @Operation(summary = "Buscar clientes por apellido", description = "Devuelve una lista de clientes cuyo apellido contenga el texto buscado.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Búsqueda completada (puede devolver lista vacía)")
+    })
+    @GetMapping("/buscar")
+    public ResponseEntity<List<ClienteDto>> searchClientes(
+            @RequestParam("texto") String texto) {
+
+        List<ClienteDto> clientes = clienteService.searchClientesList(texto);
+        return ResponseEntity.ok(clientes);
+    }
+
+    /**
+     * Filtra a los clientes por el texto recibido
+     * @param texto por el cual se filtra
+     * @param page la página que empieza
+     * @param size numero de clientes por page
+     * @return page de clientes filtrados
+     */
+    @GetMapping("/buscar-complejo")
+    public ResponseEntity<Page<ClienteDto>> searchClientes(
+            @RequestParam("texto") String texto,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<ClienteDto> resultados = clienteService.searchClientesPaged(texto, pageable);
+
+        return ResponseEntity.ok(resultados);
     }
 }

@@ -77,11 +77,17 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public List<ClienteDto> searchClientesByApellidos(String textoApellidos) {
-        return clienteRepository.findByApellidosContainingIgnoreCase(textoApellidos)
+    public List<ClienteDto> searchClientesList(String texto) {
+        return clienteRepository.searchGlobal(texto)
                 .stream()
                 .map(clienteMapper::toClienteDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<ClienteDto> searchClientesPaged(String texto, Pageable pageable) {
+        Page<Cliente> pagina = clienteRepository.searchGlobalPaged(texto, pageable);
+        return pagina.map(clienteMapper::toClienteDto);
     }
 
     @Override

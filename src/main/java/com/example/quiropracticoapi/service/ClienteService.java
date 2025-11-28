@@ -48,10 +48,18 @@ public interface ClienteService {
 
     /**
      * Busca clientes cuyos apellidos contengan el textoBuscado.
-     * @param textoApellidos El texto a buscar (ej. "Garc").
+     * @param texto El texto a buscar (ej. "Garc").
      * @return Lista de clientes que coinciden.
      */
-    List<ClienteDto> searchClientesByApellidos(String textoApellidos);
+    List<ClienteDto> searchClientesList(String texto);
+
+    /**
+     * Busca clientes por el filtro del texto que recibe
+     * @param texto por el cual se filtra
+     * @param pageable para el page
+     * @return un page de clientes filtrados
+     */
+    Page<ClienteDto> searchClientesPaged(String texto, Pageable pageable);
 
     /**
      * Vincula dos clientes en un grupo familiar.

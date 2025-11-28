@@ -165,7 +165,7 @@ public class CitaServiceImpl implements CitaService {
 
     @Override
     public List<CitaDto> getCitasPorCliente(Integer idCliente) {
-        return citaRepository.findByClienteIdCliente(idCliente)
+        return citaRepository.findByClienteIdClienteOrderByFechaHoraInicioDesc(idCliente)
                 .stream().map(citaMapper::toDto).collect(Collectors.toList());
     }
 

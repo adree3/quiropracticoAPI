@@ -12,11 +12,11 @@ import java.util.List;
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Integer> {
     /**
-     * Busca las citas de un clinete es especifico
+     * Busca las citas de un clinete en especifico ordenado primero las mas recientes
      * @param clienteId identificador del cliente
      * @return lista de citas
      */
-    List<Cita> findByClienteIdCliente(Integer clienteId);
+    List<Cita> findByClienteIdClienteOrderByFechaHoraInicioDesc(Integer clienteId);
 
     /**
      * Busca las citas de un quiropráctico
