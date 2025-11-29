@@ -13,6 +13,14 @@ import java.util.Optional;
 
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
+
+    /**
+     * Devuelve un page de clientes que este activos
+     * @param pageable por el numero de pagina que inicia
+     * @return page de cientes
+     */
+    Page<Cliente> findByActivoTrue(Pageable pageable);
+
     /**
      * Busca el cliente por el telefono indicado
      * @param telefono del cliente
@@ -33,6 +41,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * @return una lista de clientes filtrados
      */
     @Query("SELECT c FROM Cliente c WHERE " +
+            "c.activo = true AND " +
             "LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
             "LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
             "c.telefono LIKE CONCAT('%', :texto, '%')")
@@ -45,6 +54,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * @return devuelve un page de clientes filtrado
      */
     @Query("SELECT c FROM Cliente c WHERE " +
+            "c.activo = true AND " +
             "(LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
             "LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
             "c.telefono LIKE CONCAT('%', :texto, '%')) " +

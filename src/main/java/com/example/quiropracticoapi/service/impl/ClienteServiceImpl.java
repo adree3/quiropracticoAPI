@@ -35,8 +35,7 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     public Page<ClienteDto> getAllClientes(Pageable pageable) {
-        Page<Cliente> paginaClientes = clienteRepository.findAll(pageable);
-        return paginaClientes.map(clienteMapper::toClienteDto);
+        return clienteRepository.findByActivoTrue(pageable).map(clienteMapper::toClienteDto);
     }
 
     @Override
@@ -70,10 +69,11 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     public void deleteCliente(Integer id) {
-        if (!clienteRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Cliente no encontrado con id: " + id);
-        }
-        clienteRepository.deleteById(id);
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        cliente.setActivo(false);
+        clienteRepository.save(cliente);
     }
 
     @Override

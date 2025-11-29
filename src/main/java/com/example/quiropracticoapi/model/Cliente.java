@@ -45,6 +45,9 @@ public class Cliente {
     @Column(name = "notas_privadas", columnDefinition = "TEXT")
     private String notasPrivadas;
 
+    @Column(name = "activo")
+    private Boolean activo = true;
+
     @PrePersist
     protected void onCreate() {
         if (this.fechaAlta == null) {
