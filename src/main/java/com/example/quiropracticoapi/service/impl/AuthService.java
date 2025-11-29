@@ -41,12 +41,12 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .rol(user.getRol().name())
+                .nombre(user.getNombreCompleto())
                 .build();
     }
 
     public AuthResponse login(LoginRequest request) {
-        // USO DE NOMBRE COMPLETAMENTE CUALIFICADO (FQCN)
-        // Esto fuerza al compilador a buscar en la ruta exacta sin depender de imports
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
@@ -61,6 +61,8 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .rol(user.getRol().name())
+                .nombre(user.getNombreCompleto())
                 .build();
     }
 }

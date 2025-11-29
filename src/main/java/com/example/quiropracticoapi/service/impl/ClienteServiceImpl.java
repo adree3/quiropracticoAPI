@@ -34,8 +34,8 @@ public class ClienteServiceImpl implements ClienteService {
 
 
     @Override
-    public Page<ClienteDto> getAllClientes(Pageable pageable) {
-        return clienteRepository.findByActivoTrue(pageable).map(clienteMapper::toClienteDto);
+    public Page<ClienteDto> getAllClientes(Boolean activo,Pageable pageable) {
+        return clienteRepository.findByActivo(activo, pageable).map(clienteMapper::toClienteDto);
     }
 
     @Override
@@ -110,6 +110,15 @@ public class ClienteServiceImpl implements ClienteService {
         grupo.setRelacion(relacion);
 
         grupoFamiliarRepository.save(grupo);
+    }
+
+    @Override
+    public void recoverCliente(Integer id) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        cliente.setActivo(true);
+        clienteRepository.save(cliente);
     }
 
     private Cliente getClienteByIdEntity(Integer id) {

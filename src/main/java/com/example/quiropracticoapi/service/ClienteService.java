@@ -13,7 +13,7 @@ public interface ClienteService {
      * Obtiene una lista de todos los clientes.
      * @return Lista de DTOs de clientes.
      */
-    Page<ClienteDto> getAllClientes(Pageable pageable);
+    Page<ClienteDto> getAllClientes(Boolean activo, Pageable pageable);
 
     /**
      * Busca un cliente por su ID.
@@ -69,6 +69,10 @@ public interface ClienteService {
      */
     void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);
 
-
+    /**
+     * Cambia el cliente a activo
+     * @param id identificador cliente
+     */
+    void recoverCliente(Integer id);
 
 }

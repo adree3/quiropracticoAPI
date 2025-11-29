@@ -39,6 +39,7 @@ public class ClienteController {
     @Operation(summary = "Obtener clientes paginados", description = "Devuelve una lista paginada de clientes.")
     @GetMapping // Se mantiene el mapeo base
     public ResponseEntity<Page<ClienteDto>> getAllClientes(
+            @RequestParam(defaultValue = "true") Boolean activo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "idCliente") String sortBy,
@@ -50,7 +51,7 @@ public class ClienteController {
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<ClienteDto> clientesPage = clienteService.getAllClientes(pageable);
+        Page<ClienteDto> clientesPage = clienteService.getAllClientes(activo, pageable);
         return ResponseEntity.ok(clientesPage);
     }
 
@@ -165,5 +166,16 @@ public class ClienteController {
         Page<ClienteDto> resultados = clienteService.searchClientesPaged(texto, pageable);
 
         return ResponseEntity.ok(resultados);
+    }
+
+    /**
+     * Cambia al cliente a activo
+     * @param id identificador del cliente
+     * @return la respuesta de confirmacion
+     */
+    @PutMapping("/{id}/recuperar")
+    public ResponseEntity<Void> recoverCliente(@PathVariable Integer id) {
+        clienteService.recoverCliente(id);
+        return ResponseEntity.ok().build();
     }
 }

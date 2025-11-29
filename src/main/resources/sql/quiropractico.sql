@@ -71,6 +71,7 @@ CREATE TABLE `clientes` (
   `direccion` VARCHAR(255) NULL,
   `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `notas_privadas` TEXT NULL COMMENT 'Notas administrativas, no clínicas',
+  `activo` TINYINT(1) DEFAULT 1,
   PRIMARY KEY (`id_cliente`),
   INDEX `idx_cliente_nombre_apellidos` (`apellidos`, `nombre`),
   INDEX `idx_cliente_telefono` (`telefono`)

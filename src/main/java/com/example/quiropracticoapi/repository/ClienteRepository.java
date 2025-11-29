@@ -60,4 +60,12 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
             "c.telefono LIKE CONCAT('%', :texto, '%')) " +
             "ORDER BY c.nombre ASC, c.apellidos ASC")
     Page<Cliente> searchGlobalPaged(@Param("texto") String texto, Pageable pageable);
+
+    /**
+     * Busca un cliente por estado
+     * @param activo true o false
+     * @param pageable de clientes
+     * @return una page de clientes segun si esta activo
+     */
+    Page<Cliente> findByActivo(Boolean activo, Pageable pageable);
 }
