@@ -43,6 +43,9 @@ public class Pago {
     @Column(name = "notas", length = 255)
     private String notas;
 
+    @Column(name = "pagado", nullable = false)
+    private boolean pagado = true;
+
     @PrePersist
     protected void onCreate() {
         if (this.fechaPago == null) {

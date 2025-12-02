@@ -52,6 +52,17 @@ public class PagoServiceImpl implements PagoService {
             throw new IllegalArgumentException("Método de pago inválido: " + request.getMetodoPago());
         }
 
+        if (request.getPagado() != null) {
+            pago.setPagado(request.getPagado());
+        } else {
+            String metodo = request.getMetodoPago().toLowerCase();
+            if (metodo.equals("efectivo")) {
+                pago.setPagado(true);
+            } else {
+                pago.setPagado(false);
+            }
+        }
+
         // Guardamos el pago primero para tener su ID
         Pago pagoGuardado = pagoRepository.save(pago);
 

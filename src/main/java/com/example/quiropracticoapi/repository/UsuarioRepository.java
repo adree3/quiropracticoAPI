@@ -2,6 +2,8 @@ package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.Usuario;
 import com.example.quiropracticoapi.model.enums.Rol;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -23,4 +25,12 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * @return lista de usuarios del mismo rol
      */
     List<Usuario> findByRol(Rol rol);
+
+    /**
+     * Devuelve un page de usuarios activo o no
+      * @param activo boolean para indicar si estan activos
+     * @param pageable cantidad de usuarios
+     * @return page de usuarios
+     */
+    Page<Usuario> findByActivo(Boolean activo, Pageable pageable);
 }

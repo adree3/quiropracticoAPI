@@ -22,8 +22,11 @@ public class ServicioServiceImpl implements ServicioService {
     }
 
     @Override
-    public List<Servicio> getAllServicios() {
-        return servicioRepository.findAll();
+    public List<Servicio> getAllServicios(Boolean activo) {
+        if (activo == null) {
+            return servicioRepository.findAll();
+        }
+        return servicioRepository.findByActivo(activo);
     }
 
     @Override

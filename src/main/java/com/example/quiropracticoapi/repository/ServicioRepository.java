@@ -21,4 +21,11 @@ public interface ServicioRepository extends JpaRepository<Servicio, Integer> {
      * @return lista de servicios
      */
     List<Servicio> findByActivoTrueAndTipo(TipoServicio tipo);
+
+    /**
+     * Busca los servicios activos
+     * @param activo indica si el servicio esta activo o no
+     * @return lista de servicios
+     */
+    List<Servicio> findByActivo(Boolean activo);
 }

@@ -32,8 +32,10 @@ public class ServicioController {
      * @return una lista de servicios
      */
     @GetMapping
-    public ResponseEntity<List<Servicio>> getAll() {
-        return ResponseEntity.ok(servicioService.getAllServicios());
+    public ResponseEntity<List<Servicio>> getAll(
+            @RequestParam(required = false) Boolean activo
+    ) {
+        return ResponseEntity.ok(servicioService.getAllServicios(activo));
     }
 
     /**

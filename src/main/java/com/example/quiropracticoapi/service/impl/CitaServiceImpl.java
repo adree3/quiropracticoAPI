@@ -141,6 +141,8 @@ public class CitaServiceImpl implements CitaService {
                     .findBonosDisponiblesParaCliente(cliente.getIdCliente());
             if (!bonosDisponibles.isEmpty()) {
                 bonoAUtilizar = bonosDisponibles.getFirst();
+            }else {
+                throw new IllegalArgumentException("El cliente NO tiene bonos activos con saldo.");
             }
         }
 
