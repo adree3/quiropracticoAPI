@@ -24,4 +24,5 @@ public interface HistorialClinicoRepository extends JpaRepository<HistorialClini
      */
     List<HistorialClinico> findByClienteIdClienteOrderByFechaSesionDesc(Integer clienteId);
 
+
 }

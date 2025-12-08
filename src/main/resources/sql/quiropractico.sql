@@ -162,6 +162,7 @@ CREATE TABLE `pagos` (
   `fecha_pago` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `id_servicio_pagado` INT NULL COMMENT 'Opcional: qué servicio/bono generó este pago',
   `notas` VARCHAR(255) NULL,
+  `pagado` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id_pago`),
   INDEX `idx_pago_cliente` (`id_cliente`),
   CONSTRAINT `fk_pago_cliente`
@@ -223,6 +224,7 @@ CREATE TABLE `consumos_bono` (
   `id_cita` INT NOT NULL UNIQUE COMMENT 'Una cita solo puede consumir 1 sesión',
   `id_bono_activo` INT NOT NULL,
   `fecha_consumo` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `sesiones_restantes_snapshot` INT NULL,
   PRIMARY KEY (`id_consumo`),
   INDEX `idx_consumo_bono` (`id_bono_activo`),
   CONSTRAINT `fk_consumo_cita`
@@ -237,13 +239,10 @@ CREATE TABLE `consumos_bono` (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-
 -- Reactivamos la comprobación de claves foráneas
 SET FOREIGN_KEY_CHECKS = 1;
 
-
 USE quiropractica_db;
-
 -- Limpiamos datos previos (en orden inverso para respetar FKs)
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE consumos_bono;

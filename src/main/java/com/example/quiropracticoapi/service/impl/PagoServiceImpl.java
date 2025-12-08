@@ -1,5 +1,7 @@
 package com.example.quiropracticoapi.service.impl;
 
+import com.example.quiropracticoapi.dto.BonoSeleccionDto;
+import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.BonoActivo;
@@ -17,6 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PagoServiceImpl implements PagoService {
@@ -63,20 +68,59 @@ public class PagoServiceImpl implements PagoService {
             }
         }
 
-        // Guardamos el pago primero para tener su ID
+        // Guardamos el pago para tener su ID
         Pago pagoGuardado = pagoRepository.save(pago);
 
-        // Crear el Bono Activo (Producto entregado)
+        // Crear el Bono Activo
         BonoActivo bono = new BonoActivo();
         bono.setCliente(cliente);
         bono.setServicioComprado(servicio);
         bono.setPagoOrigen(pagoGuardado);
         bono.setFechaCompra(LocalDate.now());
 
-        int sesiones = servicio.getSesionesIncluidas() != null ? servicio.getSesionesIncluidas() : 0;
+        int sesiones;
+
+        if (servicio.getSesionesIncluidas() != null && servicio.getSesionesIncluidas() > 0) {
+            sesiones = servicio.getSesionesIncluidas();
+        }else {
+            sesiones = 1;
+        }
+
         bono.setSesionesTotales(sesiones);
         bono.setSesionesRestantes(sesiones);
 
         bonoActivoRepository.save(bono);
+    }
+
+    @Override
+    public List<PagoDto> getPagosEnRango(LocalDateTime inicio, LocalDateTime fin) {
+        return pagoRepository.findByFechaPagoBetweenOrderByFechaPagoDesc(inicio, fin)
+                .stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PagoDto> getPagosPendientes() {
+        return pagoRepository.findByPagadoFalseOrderByFechaPagoDesc()
+                .stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public void confirmarPago(Integer idPago) {
+        Pago pago = pagoRepository.findById(idPago)
+                .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
+        pago.setPagado(true);
+        pagoRepository.save(pago);
+    }
+
+    private PagoDto toDto(Pago p) {
+        PagoDto dto = new PagoDto();
+        dto.setIdPago(p.getIdPago());
+        dto.setNombreCliente(p.getCliente().getNombre() + " " + p.getCliente().getApellidos());
+        dto.setConcepto(p.getServicioPagado() != null ? p.getServicioPagado().getNombreServicio() : "Cobro");
+        dto.setMonto(p.getMonto());
+        dto.setMetodoPago(p.getMetodoPago().name());
+        dto.setFechaPago(p.getFechaPago());
+        dto.setPagado(p.isPagado());
+        return dto;
     }
 }

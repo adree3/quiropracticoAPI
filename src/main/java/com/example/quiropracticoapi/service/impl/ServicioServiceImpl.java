@@ -76,7 +76,7 @@ public class ServicioServiceImpl implements ServicioService {
             }
             entity.setSesionesIncluidas(dto.getSesionesIncluidas());
         } else {
-            entity.setSesionesIncluidas(null);
+            entity.setSesionesIncluidas(1);
         }
     }
 }

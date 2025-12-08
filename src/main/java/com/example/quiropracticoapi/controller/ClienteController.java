@@ -178,4 +178,15 @@ public class ClienteController {
         clienteService.recoverCliente(id);
         return ResponseEntity.ok().build();
     }
+
+    /**
+     * Elimina un familiar
+     * @param idGrupo identificadior del grupo familiar
+     * @return respuesta de eliminar un familiar
+     */
+    @DeleteMapping("/familiares/{idGrupo}")
+    public ResponseEntity<Void> deleteFamiliar(@PathVariable Integer idGrupo) {
+        clienteService.deleteFamiliar(idGrupo);
+        return ResponseEntity.ok().build();
+    }
 }

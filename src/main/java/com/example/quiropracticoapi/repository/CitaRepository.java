@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.Cita;
+import com.example.quiropracticoapi.model.enums.EstadoCita;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -61,4 +62,21 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             @Param("nuevoFin") LocalDateTime nuevoFin,
             @Param("idExcluir") Integer idExcluir
     );
+
+    /**
+     * Cuenta las citas en un rango
+     * @param inicio fecha inicio
+     * @param fin fecha fin
+     * @return citas sumadas
+     */
+    long countByFechaHoraInicioBetween(LocalDateTime inicio, LocalDateTime fin);
+
+    /**
+     * Cuenta las citas en un rango y en un estado definido
+     * @param inicio fecha inicio
+     * @param fin fecha fin
+     * @param estado estado de la cita
+     * @return citas sumadas
+     */
+    long countByFechaHoraInicioBetweenAndEstado(LocalDateTime inicio, LocalDateTime fin, EstadoCita estado);
 }

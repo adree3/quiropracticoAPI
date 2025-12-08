@@ -19,4 +19,5 @@ public class CitaDto {
     private LocalDateTime fechaHoraFin;
     private EstadoCita estado;
     private String notasRecepcion;
+    private String infoPago;
 }

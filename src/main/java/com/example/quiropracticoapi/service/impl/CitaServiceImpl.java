@@ -115,7 +115,6 @@ public class CitaServiceImpl implements CitaService {
     private void gestionarConsumoBono(Cita cita, Cliente cliente, Integer idBonoForzado) {
         BonoActivo bonoAUtilizar = null;
 
-        // Bono elegido
         if (idBonoForzado != null) {
             BonoActivo bono = bonoActivoRepository.findById(idBonoForzado)
                     .orElseThrow(() -> new IllegalArgumentException("El bono seleccionado no existe"));
@@ -146,23 +145,31 @@ public class CitaServiceImpl implements CitaService {
             }
         }
 
-        // Si hemos encontrado un bono válido, procedemos al cobro
         if (bonoAUtilizar != null) {
-            bonoAUtilizar.setSesionesRestantes(bonoAUtilizar.getSesionesRestantes() - 1);
+            int nuevoSaldo = bonoAUtilizar.getSesionesRestantes() - 1;
+            bonoAUtilizar.setSesionesRestantes(nuevoSaldo);
             bonoActivoRepository.save(bonoAUtilizar);
+
             ConsumoBono consumo = new ConsumoBono();
             consumo.setCita(cita);
             consumo.setBonoActivo(bonoAUtilizar);
+
+            consumo.setSesionesRestantesSnapshot(nuevoSaldo);
             consumoBonoRepository.save(consumo);
         }
     }
 
     @Override
     public List<CitaDto> getCitasPorFecha(LocalDate fecha) {
-        return citaRepository.findByFechaHoraInicioBetween(
+        List<Cita> citas=  citaRepository.findByFechaHoraInicioBetween(
                 fecha.atStartOfDay(),
                 fecha.atTime(23, 59, 59)
-        ).stream().map(citaMapper::toDto).collect(Collectors.toList());
+        );
+        return citas.stream().map(c -> {
+            CitaDto dto = citaMapper.toDto(c);
+            llenarInfoPago(c, dto);
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -183,7 +190,10 @@ public class CitaServiceImpl implements CitaService {
     public CitaDto getCitaById(Integer idCita) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
-        return citaMapper.toDto(cita);
+        CitaDto dto = citaMapper.toDto(cita);
+        llenarInfoPago(cita,dto);
+
+        return dto;
     }
 
     @Override
@@ -288,7 +298,29 @@ public class CitaServiceImpl implements CitaService {
                 return false;
             }
         }
-
         return true;
+    }
+
+    private void llenarInfoPago(Cita cita, CitaDto dto) {
+        var consumoOpt = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
+
+        if (consumoOpt.isPresent()) {
+            ConsumoBono consumo = consumoOpt.get();
+            BonoActivo bono = consumo.getBonoActivo();
+            String nombreBono = bono.getServicioComprado().getNombreServicio();
+
+            int restantesHistorico = consumo.getSesionesRestantesSnapshot() != null
+                    ? consumo.getSesionesRestantesSnapshot()
+                    : bono.getSesionesRestantes();
+            String infoSaldo = " / quedan " + restantesHistorico;
+
+            if (bono.getCliente().getIdCliente().equals(cita.getCliente().getIdCliente())) {
+                dto.setInfoPago("Bono Propio (" + nombreBono  + infoSaldo+")");
+            } else {
+                dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
+            }
+        } else {
+            dto.setInfoPago("Pago Directo / Sesión Suelta");
+        }
     }
 }

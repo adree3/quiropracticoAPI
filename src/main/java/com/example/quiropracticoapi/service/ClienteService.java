@@ -75,4 +75,10 @@ public interface ClienteService {
      */
     void recoverCliente(Integer id);
 
+    /**
+     * Elimina a un familiar.
+     * @param idGrupo identificador del grupo familiar
+     */
+    void deleteFamiliar(Integer idGrupo);
+
 }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,4 +69,18 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * @return una page de clientes segun si esta activo
      */
     Page<Cliente> findByActivo(Boolean activo, Pageable pageable);
+
+    /**
+     * Cuenta los clientes nuevos este mes
+     * @param inicio fecha inicio
+     * @param fin fecha fin
+     * @return numero de clientes nuevos
+     */
+    long countByFechaAltaBetween(LocalDateTime inicio, LocalDateTime fin);
+
+    /**
+     * Cuenta los clientes activos
+     * @return numero de clientes activos
+     */
+    long countByActivoTrue();
 }

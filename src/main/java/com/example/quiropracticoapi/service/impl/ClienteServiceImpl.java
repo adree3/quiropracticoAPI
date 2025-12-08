@@ -121,6 +121,14 @@ public class ClienteServiceImpl implements ClienteService {
         clienteRepository.save(cliente);
     }
 
+    @Override
+    public void deleteFamiliar(Integer idGrupo) {
+        if (!grupoFamiliarRepository.existsById(idGrupo)) {
+            throw new ResourceNotFoundException("Relación familiar no encontrada");
+        }
+        grupoFamiliarRepository.deleteById(idGrupo);
+    }
+
     private Cliente getClienteByIdEntity(Integer id) {
         return clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + id));

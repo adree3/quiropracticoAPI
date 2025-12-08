@@ -31,6 +31,9 @@ public class ConsumoBono {
     @Column(name = "fecha_consumo", nullable = false, updatable = false)
     private LocalDateTime fechaConsumo;
 
+    @Column(name = "sesiones_restantes_snapshot")
+    private Integer sesionesRestantesSnapshot;
+
     @PrePersist
     protected void onCreate() {
         if (this.fechaConsumo == null) {
