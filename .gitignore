@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Ficheros de configuración con secretos ###
+application-dev.properties
+**/application-dev.properties
