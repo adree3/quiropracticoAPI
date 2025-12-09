@@ -41,6 +41,12 @@ public class Usuario implements UserDetails {
     @Column(name = "activo", nullable = false)
     private boolean activo= true;
 
+    @Column(name = "intentos_fallidos")
+    private int intentosFallidos = 0;
+
+    @Column(name = "cuenta_bloqueada")
+    private boolean cuentaBloqueada = false;
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

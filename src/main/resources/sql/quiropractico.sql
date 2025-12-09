@@ -18,6 +18,8 @@ CREATE TABLE `usuarios` (
   `nombre_completo` VARCHAR(150) NOT NULL,
   `rol` ENUM('admin', 'quiropráctico', 'recepción') NOT NULL,
   `activo` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0=Inactivo, 1=Activo',
+  `intentos_fallidos` INT NOT NULL DEFAULT 0,
+  `cuenta_bloqueada` TINYINT(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_usuario`)
 ) ENGINE=InnoDB;
 

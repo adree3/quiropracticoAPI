@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -38,13 +39,20 @@ public class GlobalExceptionHandler {
 
     // Maneja las credenciales incorrectas
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<?> handleBadCredentialsException(BadCredentialsException ex, WebRequest request) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", LocalDateTime.now());
-        body.put("message", "Credenciales incorrectas (Usuario o contraseña mal)");
-        body.put("status", HttpStatus.UNAUTHORIZED.value());
+    public ResponseEntity<Map<String, String>> handleBadCredentials(BadCredentialsException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", ex.getMessage());
+        response.put("error", "Unauthorized");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
 
-        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
+    // Manejar Cuenta Bloqueada
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<Map<String, String>> handleLocked(LockedException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", ex.getMessage());
+        response.put("error", "Account Locked");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     // Manejar cualquier otro error no controlado (Devolver 500)

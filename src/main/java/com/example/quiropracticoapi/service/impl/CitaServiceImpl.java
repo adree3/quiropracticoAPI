@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -31,10 +32,13 @@ public class CitaServiceImpl implements CitaService {
     private final CitaMapper citaMapper;
     private final BonoActivoRepository bonoActivoRepository;
     private final ConsumoBonoRepository consumoBonoRepository;
+    private final WhatsAppService whatsAppService;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
+
 
 
     @Autowired
-    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository) {
+    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -43,6 +47,7 @@ public class CitaServiceImpl implements CitaService {
         this.citaMapper = citaMapper;
         this.bonoActivoRepository = bonoActivoRepository;
         this.consumoBonoRepository = consumoBonoRepository;
+        this.whatsAppService = whatsAppService;
     }
 
     @Override
@@ -53,13 +58,32 @@ public class CitaServiceImpl implements CitaService {
         Usuario quiro = usuarioRepository.findById(request.getIdQuiropractico())
                 .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
 
-        // VALIDACIONES DE NEGOCIO
         validarDisponibilidad(quiro, request, null);
 
         Cita cita = citaMapper.toEntity(request, cliente, quiro);
         Cita citaGuardada = citaRepository.save(cita);
 
-        gestionarConsumoBono(citaGuardada, cliente, request.getIdBonoAUtilizar());
+        BonoActivo bonoUsado = gestionarConsumoBono(citaGuardada, cliente, request.getIdBonoAUtilizar());
+
+        if (bonoUsado != null) {
+            try {
+                String telefono = cliente.getTelefono();
+                String nombre = cliente.getNombre();
+                String fechaFormateada = citaGuardada.getFechaHoraInicio().format(DATE_FORMATTER);
+                String sesionesRestantes = String.valueOf(bonoUsado.getSesionesRestantes());
+                String nombreServicio = bonoUsado.getServicioComprado().getNombreServicio();
+                whatsAppService.enviarMensajeCita(
+                        telefono,
+                        nombre,
+                        fechaFormateada,
+                        sesionesRestantes,
+                        nombreServicio
+                );
+            } catch (Exception e) {
+                // Importante: Logueamos pero NO lanzamos la excepción para no hacer rollback de la cita
+                System.err.println("⚠ ALERTA: Cita creada pero falló el envío de WhatsApp: " + e.getMessage());
+            }
+        }
 
         return citaMapper.toDto(citaGuardada);
     }
@@ -112,7 +136,7 @@ public class CitaServiceImpl implements CitaService {
         }
     }
 
-    private void gestionarConsumoBono(Cita cita, Cliente cliente, Integer idBonoForzado) {
+    private BonoActivo gestionarConsumoBono(Cita cita, Cliente cliente, Integer idBonoForzado) {
         BonoActivo bonoAUtilizar = null;
 
         if (idBonoForzado != null) {
@@ -148,15 +172,17 @@ public class CitaServiceImpl implements CitaService {
         if (bonoAUtilizar != null) {
             int nuevoSaldo = bonoAUtilizar.getSesionesRestantes() - 1;
             bonoAUtilizar.setSesionesRestantes(nuevoSaldo);
-            bonoActivoRepository.save(bonoAUtilizar);
+            BonoActivo bonoGuardado = bonoActivoRepository.save(bonoAUtilizar);
 
             ConsumoBono consumo = new ConsumoBono();
             consumo.setCita(cita);
-            consumo.setBonoActivo(bonoAUtilizar);
-
+            consumo.setBonoActivo(bonoGuardado);
             consumo.setSesionesRestantesSnapshot(nuevoSaldo);
             consumoBonoRepository.save(consumo);
+
+            return bonoGuardado;
         }
+        return null;
     }
 
     @Override
