@@ -42,4 +42,7 @@ public class Cita {
 
     @Column(name = "notas_recepcion", columnDefinition = "TEXT")
     private String notasRecepcion;
+
+    @OneToOne(mappedBy = "cita", cascade = CascadeType.ALL)
+    private ConsumoBono consumoBono;
 }

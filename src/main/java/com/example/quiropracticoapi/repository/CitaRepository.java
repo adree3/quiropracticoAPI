@@ -79,4 +79,19 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @return citas sumadas
      */
     long countByFechaHoraInicioBetweenAndEstado(LocalDateTime inicio, LocalDateTime fin, EstadoCita estado);
+
+    /**
+     * Busca citas futuras que tengan cobrado con el bono del propietario
+     * @param pacienteId identificador del paciente
+     * @param propietarioId identificardor del propietario del bono
+     * @return lista de citas cobradas con el bono del propietario
+     */
+    @Query("SELECT c FROM Cita c " +
+            "WHERE c.cliente.idCliente = :pacienteId " +
+            "AND c.consumoBono.bonoActivo.cliente.idCliente = :propietarioId " +
+            "AND c.fechaHoraInicio > CURRENT_TIMESTAMP " +
+            "AND c.estado != 'cancelada'")
+    List<Cita> findCitasFuturasConBonoPrestado(
+            @Param("pacienteId") Integer pacienteId,
+            @Param("propietarioId") Integer propietarioId);
 }

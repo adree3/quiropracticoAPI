@@ -10,4 +10,5 @@ public interface BonoService {
 
     List<BonoSeleccionDto> getBonosUsables(Integer idCliente);
 
+    void devolverSesion(Integer idBonoActivo);
 }
