@@ -12,4 +12,5 @@ public class UsuarioDto {
     private String username;
     private Rol rol;
     private boolean activo;
+    private boolean cuentaBloqueada;
 }

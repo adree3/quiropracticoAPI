@@ -75,6 +75,16 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuarioRepository.save(user);
     }
 
+    @Override
+    public void unlockUser(Integer id) {
+        Usuario user = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        user.setCuentaBloqueada(false);
+        user.setIntentosFallidos(0);
+        usuarioRepository.save(user);
+    }
+
     private UsuarioDto toDto(Usuario u) {
         UsuarioDto dto = new UsuarioDto();
         dto.setIdUsuario(u.getIdUsuario());
@@ -82,6 +92,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         dto.setUsername(u.getUsername());
         dto.setRol(u.getRol());
         dto.setActivo(u.isActivo());
+        dto.setCuentaBloqueada(u.isCuentaBloqueada());
         return dto;
     }
 }

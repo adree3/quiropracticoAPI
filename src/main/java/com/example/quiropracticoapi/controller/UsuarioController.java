@@ -80,4 +80,16 @@ public class UsuarioController {
                         .collect(Collectors.toList())
         );
     }
+
+    // DESBLOQUEAR
+    @PutMapping("/{id}/desbloquear")
+    public ResponseEntity<Void> unlock(@PathVariable Integer id) {
+        usuarioService.unlockUser(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/bloqueados/count")
+    public ResponseEntity<Long> countBlocked() {
+        return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrue());
+    }
 }

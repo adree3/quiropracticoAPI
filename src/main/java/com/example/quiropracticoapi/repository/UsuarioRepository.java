@@ -33,4 +33,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * @return page de usuarios
      */
     Page<Usuario> findByActivo(Boolean activo, Pageable pageable);
+
+    /**
+     * Numero de cuentas bloqueadas
+     * @return devuelve el numero de cuentas bloqueadas
+     */
+    long countByCuentaBloqueadaTrue();
 }

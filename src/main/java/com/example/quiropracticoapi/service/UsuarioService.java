@@ -11,4 +11,5 @@ public interface UsuarioService {
     UsuarioDto updateUser(Integer id, RegisterRequest request);
     void deleteUser(Integer id);
     void recoverUser(Integer id);
+    void unlockUser(Integer id);
 }
