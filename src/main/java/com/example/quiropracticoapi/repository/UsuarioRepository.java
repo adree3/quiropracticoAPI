@@ -38,5 +38,5 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * Numero de cuentas bloqueadas
      * @return devuelve el numero de cuentas bloqueadas
      */
-    long countByCuentaBloqueadaTrue();
+    long countByCuentaBloqueadaTrueAndActivoTrue();
 }

@@ -44,8 +44,12 @@ public class GlobalExceptionHandler {
     // Maneja las credenciales incorrectas
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorDto> handleBadCredentials(BadCredentialsException ex) {
+        String mensaje = ex.getMessage();
+        if (mensaje == null || mensaje.equals("Bad credentials")) {
+            mensaje = "Usuario o contraseña incorrectos";
+        }
         ErrorDto error = new ErrorDto(
-                "Usuario o contraseña incorrectos",
+                mensaje,
                 "UNAUTHORIZED",
                 HttpStatus.UNAUTHORIZED.value()
         );

@@ -24,4 +24,6 @@ public interface CitaService {
     CitaDto updateCita(Integer idCita, CitaRequestDto request);
 
     List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir);
+
+
 }

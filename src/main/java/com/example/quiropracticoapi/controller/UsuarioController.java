@@ -90,6 +90,6 @@ public class UsuarioController {
 
     @GetMapping("/bloqueados/count")
     public ResponseEntity<Long> countBlocked() {
-        return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrue());
+        return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrueAndActivoTrue());
     }
 }

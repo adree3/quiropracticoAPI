@@ -41,4 +41,11 @@ public interface BloqueoAgendaRepository extends JpaRepository<BloqueoAgenda, In
             @Param("rangoFin") LocalDateTime rangoFin
     );
 
+    /**
+     * Coge los bloqueosAgenda futuros
+     * @param fecha para indicar el rango
+     * @return lista de bloqueo de agenda
+     */
+    List<BloqueoAgenda> findByFechaHoraInicioAfterOrderByFechaHoraInicio(LocalDateTime fecha);
+
 }

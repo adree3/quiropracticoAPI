@@ -47,7 +47,6 @@ public class CitaController {
     @GetMapping("/agenda")
     public ResponseEntity<List<CitaDto>> getAgendaDiaria(
             @RequestParam("fecha") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        // Ejemplo GET /api/citas/agenda?fecha=2025-11-25
         List<CitaDto> citas = citaService.getCitasPorFecha(fecha);
         return ResponseEntity.ok(citas);
     }

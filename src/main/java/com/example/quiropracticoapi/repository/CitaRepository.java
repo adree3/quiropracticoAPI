@@ -64,6 +64,21 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
     );
 
     /**
+     * Busca cualquier cita activa que olape con el rango indicado
+     * @param inicio inicio del rango
+     * @param fin fin del rango
+     * @return lista de citas
+     */
+    @Query("SELECT c FROM Cita c WHERE " +
+            "c.estado <> com.example.quiropracticoapi.model.enums.EstadoCita.cancelada AND " +
+            "c.fechaHoraInicio < :fin AND " +
+            "c.fechaHoraFin > :inicio")
+    List<Cita> findCitasConflictivasGlobales(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
+
+    /**
      * Cuenta las citas en un rango
      * @param inicio fecha inicio
      * @param fin fecha fin

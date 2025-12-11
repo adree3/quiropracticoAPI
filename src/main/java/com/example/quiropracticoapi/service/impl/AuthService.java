@@ -58,7 +58,7 @@ public class AuthService {
     @Transactional(noRollbackFor = AuthenticationException.class)
     public AuthResponse login(LoginRequest request) {
         Usuario user = usuarioRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario o contraseña incorrectos"));
 
         if (user.isCuentaBloqueada()) {
             throw new LockedException("Cuenta bloqueada por seguridad. Contacte con un administrador.");
@@ -86,13 +86,16 @@ public class AuthService {
             int nuevosIntentos = user.getIntentosFallidos() + 1;
             user.setIntentosFallidos(nuevosIntentos);
 
-            if (nuevosIntentos >= 5) {
+            int maxIntentos = 5;
+            int restantes = maxIntentos - nuevosIntentos;
+
+            if (nuevosIntentos >= maxIntentos) {
                 user.setCuentaBloqueada(true);
                 usuarioRepository.save(user);
                 throw new LockedException("Has superado el límite de 5 intentos. Tu cuenta ha sido BLOQUEADA.");
             }
             usuarioRepository.save(user);
-            throw new BadCredentialsException("Credenciales incorrectas. Intentos restantes: " + (5 - nuevosIntentos));
+            throw new BadCredentialsException("Credenciales incorrectas. Intentos restantes: " + restantes);
         }
     }
 }
