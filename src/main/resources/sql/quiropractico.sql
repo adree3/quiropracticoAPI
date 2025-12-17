@@ -174,6 +174,7 @@ CREATE TABLE `pagos` (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+
 -- Bonos que un cliente ha comprado y tiene activos
 DROP TABLE IF EXISTS `bonos_activos`;
 CREATE TABLE `bonos_activos` (

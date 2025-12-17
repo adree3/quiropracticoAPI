@@ -2,7 +2,6 @@ package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.BloqueoAgendaDto;
 import com.example.quiropracticoapi.service.AgendaService;
-import com.example.quiropracticoapi.service.CitaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +36,7 @@ public class AgendaController {
      */
     @GetMapping
     public ResponseEntity<List<BloqueoAgendaDto>> getFuturos() {
-        return ResponseEntity.ok(agendaService.getBloqueosFuturos());
+        return ResponseEntity.ok(agendaService.getAllBloqueos());
     }
 
     /**
@@ -49,5 +48,16 @@ public class AgendaController {
     public ResponseEntity<Void> borrar(@PathVariable Integer id) {
         agendaService.borrarBloqueo(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Actualiza un bloqueo, ya puede ser para un usuario o para todos
+     * @param id identificador del bloqueo
+     * @param dto datos para modificar el bloqueo
+     * @return bloqueo editado
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<BloqueoAgendaDto> actualizarBloqueo(@PathVariable Integer id, @RequestBody BloqueoAgendaDto dto) {
+        return ResponseEntity.ok(agendaService.actualizarBloqueo(id, dto));
     }
 }

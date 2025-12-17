@@ -5,6 +5,7 @@ import com.example.quiropracticoapi.model.enums.Rol;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -39,4 +40,11 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * @return devuelve el numero de cuentas bloqueadas
      */
     long countByCuentaBloqueadaTrueAndActivoTrue();
+
+    /**
+     * Busca lo usuarios quiropracticos activos
+     * @return lista de usuarios
+     */
+    @Query("SELECT u FROM Usuario u WHERE u.rol = 'quiropráctico' AND u.activo = true")
+    List<Usuario> findQuiropracticosActivos();
 }

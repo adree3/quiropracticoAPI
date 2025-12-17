@@ -7,6 +7,7 @@ import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.CitaMapper;
 import com.example.quiropracticoapi.model.*;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.*;
 import com.example.quiropracticoapi.service.CitaService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,12 +34,13 @@ public class CitaServiceImpl implements CitaService {
     private final BonoActivoRepository bonoActivoRepository;
     private final ConsumoBonoRepository consumoBonoRepository;
     private final WhatsAppService whatsAppService;
+    private final AuditoriaService auditoriaService;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
 
 
 
     @Autowired
-    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService) {
+    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService, AuditoriaService auditoriaService) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -48,6 +50,7 @@ public class CitaServiceImpl implements CitaService {
         this.bonoActivoRepository = bonoActivoRepository;
         this.consumoBonoRepository = consumoBonoRepository;
         this.whatsAppService = whatsAppService;
+        this.auditoriaService = auditoriaService;
     }
 
     @Override
@@ -64,7 +67,14 @@ public class CitaServiceImpl implements CitaService {
         Cita citaGuardada = citaRepository.save(cita);
 
         BonoActivo bonoUsado = gestionarConsumoBono(citaGuardada, cliente, request.getIdBonoAUtilizar());
-
+        String detallesPago = (bonoUsado != null) ? "Pago con Bono ID: " + bonoUsado.getIdBonoActivo() : "Pago Directo/Pendiente";
+        auditoriaService.registrarAccion(
+                TipoAccion.CREAR,
+                "CITA",
+                citaGuardada.getIdCita().toString(),
+                "Cliente: " + cliente.getNombre() + ". Quiro: " + quiro.getUsername() +
+                        ". Fecha: " + citaGuardada.getFechaHoraInicio() + ". " + detallesPago
+        );
         if (bonoUsado != null) {
             try {
                 String telefono = cliente.getTelefono();
@@ -80,7 +90,6 @@ public class CitaServiceImpl implements CitaService {
                         nombreServicio
                 );
             } catch (Exception e) {
-                // Importante: Logueamos pero NO lanzamos la excepción para no hacer rollback de la cita
                 System.err.println("⚠ ALERTA: Cita creada pero falló el envío de WhatsApp: " + e.getMessage());
             }
         }
@@ -170,7 +179,8 @@ public class CitaServiceImpl implements CitaService {
         }
 
         if (bonoAUtilizar != null) {
-            int nuevoSaldo = bonoAUtilizar.getSesionesRestantes() - 1;
+            int saldoAnterior = bonoAUtilizar.getSesionesRestantes();
+            int nuevoSaldo = saldoAnterior - 1;
             bonoAUtilizar.setSesionesRestantes(nuevoSaldo);
             BonoActivo bonoGuardado = bonoActivoRepository.save(bonoAUtilizar);
 
@@ -180,6 +190,13 @@ public class CitaServiceImpl implements CitaService {
             consumo.setSesionesRestantesSnapshot(nuevoSaldo);
             consumoBonoRepository.save(consumo);
 
+            auditoriaService.registrarAccion(
+                    TipoAccion.CONSUMO,
+                    "BONO",
+                    bonoGuardado.getIdBonoActivo().toString(),
+                    "Sesión consumida para Cita ID: " + cita.getIdCita() +
+                            ". Cliente: " + cliente.getNombre() + ". Saldo: " + saldoAnterior + " -> " + nuevoSaldo
+            );
             return bonoGuardado;
         }
         return null;
@@ -208,8 +225,15 @@ public class CitaServiceImpl implements CitaService {
     public void cancelarCita(Integer idCita) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+        EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(EstadoCita.cancelada);
         citaRepository.save(cita);
+        auditoriaService.registrarAccion(
+                TipoAccion.EDITAR,
+                "CITA",
+                idCita.toString(),
+                "Cita cancelada. Estado anterior: " + estadoAnterior + ". Cliente: " + cita.getCliente().getNombre()
+        );
     }
 
     @Override
@@ -226,8 +250,15 @@ public class CitaServiceImpl implements CitaService {
     public CitaDto cambiarEstado(Integer idCita, EstadoCita nuevoEstado) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+        EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(nuevoEstado);
         Cita citaGuardada = citaRepository.save(cita);
+        auditoriaService.registrarAccion(
+                TipoAccion.EDITAR,
+                "CITA",
+                idCita.toString(),
+                "Cambio de estado: " + estadoAnterior + " -> " + nuevoEstado
+        );
         return citaMapper.toDto(citaGuardada);
     }
 
@@ -244,6 +275,10 @@ public class CitaServiceImpl implements CitaService {
 
         validarDisponibilidad(quiro, request, idCita);
 
+        String cambios = "";
+        if (!cita.getQuiropractico().getIdUsuario().equals(quiro.getIdUsuario())) cambios += "Quiropráctico cambiado. ";
+        if (!cita.getFechaHoraInicio().isEqual(request.getFechaHoraInicio())) cambios += "Fecha reprogramada. ";
+
         cita.setQuiropractico(quiro);
         cita.setCliente(cliente);
         cita.setFechaHoraInicio(request.getFechaHoraInicio());
@@ -259,6 +294,12 @@ public class CitaServiceImpl implements CitaService {
         }
 
         Cita actualizada = citaRepository.save(cita);
+        auditoriaService.registrarAccion(
+                TipoAccion.EDITAR,
+                "CITA",
+                idCita.toString(),
+                "Edición de datos. " + cambios + "Nuevas notas: " + request.getNotasRecepcion()
+        );
         return citaMapper.toDto(actualizada);
     }
 

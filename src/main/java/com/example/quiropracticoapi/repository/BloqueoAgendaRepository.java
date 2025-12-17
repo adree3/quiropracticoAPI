@@ -48,4 +48,53 @@ public interface BloqueoAgendaRepository extends JpaRepository<BloqueoAgenda, In
      */
     List<BloqueoAgenda> findByFechaHoraInicioAfterOrderByFechaHoraInicio(LocalDateTime fecha);
 
+    /**
+     * Busca los conflictos que puede haber al editar un bloqueo personal (excluyendo el propio)
+     * @param usuarioId identificador del empleado
+     * @param inicio fecha inicio
+     * @param fin fecha fin
+     * @param bloqueoIdIgnorar identificador del bloqueo para editar
+     * @return lista de bloqueos que tengan conflicto
+     */
+    @Query("SELECT b FROM BloqueoAgenda b WHERE " +
+            "((b.fechaHoraInicio < :fin) AND (b.fechaHoraFin > :inicio)) " +
+            "AND b.usuario.idUsuario = :usuarioId " +
+            "AND b.idBloqueo != :bloqueoIdIgnorar")
+    List<BloqueoAgenda> findConflictoUsuarioExcluyendoId(
+            @Param("usuarioId") Integer usuarioId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("bloqueoIdIgnorar") Integer bloqueoIdIgnorar
+    );
+
+    /**
+     * Busca los conflictos que puede haber al editar un bloqueo global (excluyendo el propio)
+     * @param inicio fecha inicio
+     * @param fin fecha fin
+     * @param bloqueoIdIgnorar identificador del bloqueo para editar
+     * @return lista de bloqueos que tengan conflicto
+     */
+    @Query("SELECT b FROM BloqueoAgenda b WHERE " +
+            "((b.fechaHoraInicio < :fin) AND (b.fechaHoraFin > :inicio)) " +
+            "AND b.usuario IS NULL " +
+            "AND b.idBloqueo != :bloqueoIdIgnorar")
+    List<BloqueoAgenda> findConflictoGlobalExcluyendoId(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("bloqueoIdIgnorar") Integer bloqueoIdIgnorar
+    );
+
+    /**
+     * Busca los bloqueos que afecten a un dia especifico
+     * @param inicioDia inicio de dia
+     * @param finDia fin de dia
+     * @return lista de bloqueos
+     */
+    @Query("SELECT b FROM BloqueoAgenda b WHERE " +
+            "(b.fechaHoraInicio <= :finDia AND b.fechaHoraFin >= :inicioDia) " +
+            "AND (b.usuario IS NULL)")
+    List<BloqueoAgenda> findBloqueosGlobalesPorFecha(
+            @Param("inicioDia") LocalDateTime inicioDia,
+            @Param("finDia") LocalDateTime finDia
+    );
 }

@@ -1,9 +1,11 @@
 package com.example.quiropracticoapi.service.impl;
 
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,9 @@ public class WhatsAppService {
 
     @Value("${twilio.phone.number}")
     private String fromNumber; // El número del Sandbox (+1415...)
+
+    @Autowired
+    private AuditoriaService auditoriaService;
 
     // Inicializamos Twilio al arrancar la aplicación
     @PostConstruct
@@ -55,10 +60,21 @@ public class WhatsAppService {
                     new PhoneNumber(numeroOrigen),
                     cuerpoMensaje
             ).create();
-
+            auditoriaService.registrarAccion(
+                    TipoAccion.NOTIFICACION,
+                    "WHATSAPP",
+                    nombrePaciente,
+                    "Mensaje enviado a " + telefonoDestino + ". SID: " + message.getSid()
+            );
             System.out.println("Mensaje enviado con SID: " + message.getSid());
 
         } catch (Exception e) {
+            auditoriaService.registrarAccion(
+                    TipoAccion.ERROR,
+                    "WHATSAPP",
+                    nombrePaciente,
+                    "FALLO de envío: " + e.getMessage()
+            );
             // Importante: Que un fallo en WhatsApp no tumbe tu servidor
             System.err.println("Error enviando WhatsApp: " + e.getMessage());
         }

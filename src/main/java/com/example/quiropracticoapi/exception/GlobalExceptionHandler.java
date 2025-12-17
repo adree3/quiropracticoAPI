@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -56,12 +58,34 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
+    // Manejar usuario no encontrado
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleUsernameNotFound(UsernameNotFoundException ex) {
+        ErrorDto error = new ErrorDto(
+                "Usuario o contraseña incorrectos",
+                "UNAUTHORIZED",
+                HttpStatus.UNAUTHORIZED.value()
+        );
+        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+    }
+
     // Manejar Cuenta Bloqueada
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ErrorDto> handleLocked(LockedException ex) {
         ErrorDto error = new ErrorDto(
                 "La cuenta está bloqueada. Contacte con administración.",
                 "ACCOUNT_LOCKED",
+                HttpStatus.FORBIDDEN.value()
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    // Manejar cuenta desactivada
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorDto> handleDisabledException(DisabledException ex) {
+        ErrorDto error = new ErrorDto(
+                "Esta cuenta ha sido eliminada o desactivada. Contacte con administración.",
+                "ACCOUNT_DISABLED",
                 HttpStatus.FORBIDDEN.value()
         );
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);

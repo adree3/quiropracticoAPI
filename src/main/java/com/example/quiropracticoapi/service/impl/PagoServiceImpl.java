@@ -9,6 +9,7 @@ import com.example.quiropracticoapi.model.Cliente;
 import com.example.quiropracticoapi.model.Pago;
 import com.example.quiropracticoapi.model.Servicio;
 import com.example.quiropracticoapi.model.enums.MetodoPago;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.PagoRepository;
@@ -29,13 +30,15 @@ public class PagoServiceImpl implements PagoService {
     private final BonoActivoRepository bonoActivoRepository;
     private final ClienteRepository clienteRepository;
     private final ServicioRepository servicioRepository;
+    private final AuditoriaService auditoriaService;
 
     @Autowired
-    public PagoServiceImpl(PagoRepository pagoRepository, BonoActivoRepository bonoActivoRepository, ClienteRepository clienteRepository, ServicioRepository servicioRepository) {
+    public PagoServiceImpl(PagoRepository pagoRepository, BonoActivoRepository bonoActivoRepository, ClienteRepository clienteRepository, ServicioRepository servicioRepository, AuditoriaService auditoriaService) {
         this.pagoRepository = pagoRepository;
         this.bonoActivoRepository = bonoActivoRepository;
         this.clienteRepository = clienteRepository;
         this.servicioRepository = servicioRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Override
@@ -90,6 +93,16 @@ public class PagoServiceImpl implements PagoService {
         bono.setSesionesRestantes(sesiones);
 
         bonoActivoRepository.save(bono);
+        String estadoPago = pagoGuardado.isPagado() ? "COBRADO" : "PENDIENTE DE PAGO";
+        auditoriaService.registrarAccion(
+                TipoAccion.VENTA,
+                "PAGO",
+                pagoGuardado.getIdPago().toString(),
+                "Venta registrada: " + servicio.getNombreServicio() +
+                        ". Cliente: " + cliente.getNombre() + " " + cliente.getApellidos() +
+                        ". Monto: " + pago.getMonto() + "€. Estado: " + estadoPago +
+                        ". Método: " + pago.getMetodoPago()
+        );
     }
 
     @Override
@@ -108,8 +121,18 @@ public class PagoServiceImpl implements PagoService {
     public void confirmarPago(Integer idPago) {
         Pago pago = pagoRepository.findById(idPago)
                 .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
+        boolean estadoAnterior = pago.isPagado();
         pago.setPagado(true);
         pagoRepository.save(pago);
+        if (!estadoAnterior) {
+            auditoriaService.registrarAccion(
+                    TipoAccion.EDITAR,
+                    "PAGO",
+                    idPago.toString(),
+                    "Pago marcado como REALIZADO (estaba pendiente). Cliente: " + pago.getCliente().getNombre() +
+                            ". Monto: " + pago.getMonto()
+            );
+        }
     }
 
     private PagoDto toDto(Pago p) {

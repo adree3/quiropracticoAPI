@@ -24,4 +24,5 @@ public interface HorarioRepository extends JpaRepository<Horario, Integer> {
      */
     List<Horario> findByQuiropracticoIdUsuarioAndDiaSemana(Integer quiropracticoId, Byte diaSemana);
 
+    List<Horario> findByQuiropracticoActivoTrue();
 }

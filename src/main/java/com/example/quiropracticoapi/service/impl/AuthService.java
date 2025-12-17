@@ -4,6 +4,7 @@ import com.example.quiropracticoapi.dto.auth.AuthResponse;
 import com.example.quiropracticoapi.dto.auth.LoginRequest;
 import com.example.quiropracticoapi.dto.auth.RegisterRequest;
 import com.example.quiropracticoapi.model.Usuario;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -24,13 +25,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final AuditoriaService auditoriaService;
 
     @Autowired
-    public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager) {
+    public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, AuditoriaService auditoriaService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.auditoriaService = auditoriaService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -40,13 +43,20 @@ public class AuthService {
         user.setRol(request.getRol());
         user.setActivo(true);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-
         user.setIntentosFallidos(0);
         user.setCuentaBloqueada(false);
 
         usuarioRepository.save(user);
 
+        Usuario guardado = usuarioRepository.save(user);
         String jwtToken = jwtService.generateToken(user);
+
+        auditoriaService.registrarAccion(
+                TipoAccion.CREAR,
+                "USUARIO",
+                guardado.getUsername(),
+                "Nuevo empleado registrado. Nombre: " + guardado.getNombreCompleto() + ". Rol: " + guardado.getRol()
+        );
 
         return AuthResponse.builder()
                 .token(jwtToken)
@@ -76,6 +86,13 @@ public class AuthService {
             }
 
             String jwtToken = jwtService.generateToken(user);
+
+            auditoriaService.registrarAccion(
+                    TipoAccion.LOGIN,
+                    "SESION",
+                    user.getUsername(),
+                    "Inicio de sesión exitoso desde Web."
+            );
             return AuthResponse.builder()
                     .token(jwtToken)
                     .rol(user.getRol().name())
@@ -92,6 +109,12 @@ public class AuthService {
             if (nuevosIntentos >= maxIntentos) {
                 user.setCuentaBloqueada(true);
                 usuarioRepository.save(user);
+                auditoriaService.registrarAccion(
+                        TipoAccion.BLOQUEADO,
+                        "USUARIO",
+                        user.getUsername(),
+                        "BLOQUEO AUTOMÁTICO DE CUENTA: Superados 5 intentos fallidos de contraseña."
+                );
                 throw new LockedException("Has superado el límite de 5 intentos. Tu cuenta ha sido BLOQUEADA.");
             }
             usuarioRepository.save(user);

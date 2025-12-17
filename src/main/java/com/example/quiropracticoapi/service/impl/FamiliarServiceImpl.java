@@ -4,6 +4,7 @@ import com.example.quiropracticoapi.dto.CitaConflictoDto;
 import com.example.quiropracticoapi.model.Cita;
 import com.example.quiropracticoapi.model.GrupoFamiliar;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.CitaRepository;
 import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.BonoService;
@@ -20,12 +21,14 @@ public class FamiliarServiceImpl implements FamiliarService {
     private final CitaRepository citaRepository;
     private final GrupoFamiliarRepository grupoFamiliarRepository;
     private final BonoService bonoService;
+    private final AuditoriaService auditoriaService;
 
     @Autowired
-    public FamiliarServiceImpl(CitaRepository citaRepository, GrupoFamiliarRepository grupoFamiliarRepository, BonoService bonoService) {
+    public FamiliarServiceImpl(CitaRepository citaRepository, GrupoFamiliarRepository grupoFamiliarRepository, BonoService bonoService, AuditoriaService auditoriaService) {
         this.citaRepository = citaRepository;
         this.grupoFamiliarRepository = grupoFamiliarRepository;
         this.bonoService = bonoService;
+        this.auditoriaService = auditoriaService;
     }
 
     @Override
@@ -51,8 +54,14 @@ public class FamiliarServiceImpl implements FamiliarService {
     @Override
     @Transactional
     public void desvincularFamiliar(Integer idGrupo, List<Integer> idsCitasACancelar) {
+        GrupoFamiliar grupo = grupoFamiliarRepository.findById(idGrupo)
+                .orElseThrow(() -> new RuntimeException("Relación familiar no encontrada"));
+        String nombrePropietario = grupo.getPropietario().getNombre();
+        String nombreBeneficiario = grupo.getBeneficiario().getNombre();
+
         if (idsCitasACancelar != null && !idsCitasACancelar.isEmpty()) {
             List<Cita> citas = citaRepository.findAllById(idsCitasACancelar);
+            int citasCanceladasCount = 0;
 
             for (Cita cita : citas) {
                 if (cita.getConsumoBono() != null) {
@@ -66,12 +75,28 @@ public class FamiliarServiceImpl implements FamiliarService {
                     } else {
                         cita.setNotasRecepcion(cita.getNotasRecepcion() + "\n" + notaAuto);
                     }
+                    citasCanceladasCount++;
                 }
             }
             citaRepository.saveAll(citas);
+            if (citasCanceladasCount > 0) {
+                auditoriaService.registrarAccion(
+                        TipoAccion.EDITAR,
+                        "CITA",
+                        "VARIAS (" + citasCanceladasCount + ")",
+                        "Cancelación automática de " + citasCanceladasCount + " citas futuras de " + nombreBeneficiario +
+                                " por pérdida de acceso al bono de " + nombrePropietario
+                );
+            }
         }
 
         // 2. Borrar relación familiar
         grupoFamiliarRepository.deleteById(idGrupo);
+        auditoriaService.registrarAccion(
+                TipoAccion.ELIMINAR_FISICO,
+                "GRUPO_FAMILIAR",
+                idGrupo.toString(),
+                "Desvinculación familiar. Propietario: " + nombrePropietario + " ya no comparte bonos con Beneficiario: " + nombreBeneficiario
+        );
     }
 }

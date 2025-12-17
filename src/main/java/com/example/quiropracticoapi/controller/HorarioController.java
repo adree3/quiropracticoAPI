@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.HorarioDto;
+import com.example.quiropracticoapi.dto.HorarioGlobalDto;
 import com.example.quiropracticoapi.dto.HorarioRequestDto;
 import com.example.quiropracticoapi.service.HorarioService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,6 +31,15 @@ public class HorarioController {
     @GetMapping("/quiro/{idQuiro}")
     public ResponseEntity<List<HorarioDto>> getByQuiro(@PathVariable Integer idQuiro) {
         return ResponseEntity.ok(horarioService.getHorariosByQuiropractico(idQuiro));
+    }
+
+    /**
+     * Obtiene los horariosGlobales de los quiropracticos
+     * @return lista de horarios
+     */
+    @GetMapping("/global")
+    public ResponseEntity<List<HorarioGlobalDto>> getHorariosGlobales() {
+        return ResponseEntity.ok(horarioService.getAllHorariosActivos());
     }
 
     /**

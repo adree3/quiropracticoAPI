@@ -1,10 +1,12 @@
 package com.example.quiropracticoapi.service.impl;
 
 import com.example.quiropracticoapi.dto.HorarioDto;
+import com.example.quiropracticoapi.dto.HorarioGlobalDto;
 import com.example.quiropracticoapi.dto.HorarioRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.Horario;
 import com.example.quiropracticoapi.model.Usuario;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.HorarioRepository;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import com.example.quiropracticoapi.service.HorarioService;
@@ -20,11 +22,13 @@ public class HorarioServiceImpl implements HorarioService {
 
     private final HorarioRepository horarioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
 
     @Autowired
-    public HorarioServiceImpl(HorarioRepository horarioRepository, UsuarioRepository usuarioRepository) {
+    public HorarioServiceImpl(HorarioRepository horarioRepository, UsuarioRepository usuarioRepository, AuditoriaService auditoriaService) {
         this.horarioRepository = horarioRepository;
         this.usuarioRepository = usuarioRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Override
@@ -65,15 +69,47 @@ public class HorarioServiceImpl implements HorarioService {
         horario.setHoraInicio(request.getHoraInicio());
         horario.setHoraFin(request.getHoraFin());
 
-        return toDto(horarioRepository.save(horario));
+        Horario guardado = horarioRepository.save(horario);
+
+        String diaSemanaStr = convertirDiaSemana(guardado.getDiaSemana());
+        auditoriaService.registrarAccion(
+                TipoAccion.CREAR,
+                "HORARIO",
+                guardado.getIdHorario().toString(),
+                "Nuevo turno asignado a: " + quiro.getNombreCompleto() +
+                        ". Día: " + diaSemanaStr + ". Horario: " + guardado.getHoraInicio() + " - " + guardado.getHoraFin()
+        );
+
+        return toDto(guardado);
     }
 
     @Override
     public void deleteHorario(Integer idHorario) {
-        if (!horarioRepository.existsById(idHorario)) {
-            throw new ResourceNotFoundException("Horario no encontrado");
-        }
+        Horario h = horarioRepository.findById(idHorario)
+                .orElseThrow(() -> new ResourceNotFoundException("Horario no encontrado"));
         horarioRepository.deleteById(idHorario);
+        String diaSemanaStr = convertirDiaSemana(h.getDiaSemana());
+        auditoriaService.registrarAccion(
+                TipoAccion.ELIMINAR_FISICO,
+                "HORARIO",
+                idHorario.toString(),
+                "Turno eliminado de: " + h.getQuiropractico().getNombreCompleto() +
+                        ". Era el día: " + diaSemanaStr + " de " + h.getHoraInicio() + " a " + h.getHoraFin()
+        );
+    }
+
+    @Override
+    public List<HorarioGlobalDto> getAllHorariosActivos() {
+        List<Horario> horarios = horarioRepository.findByQuiropracticoActivoTrue();
+        return horarios.stream().map(h -> {
+            HorarioGlobalDto dto = new HorarioGlobalDto();
+            dto.setIdHorario(h.getIdHorario());
+            dto.setIdQuiropractico(h.getQuiropractico().getIdUsuario());
+            dto.setDiaSemana(h.getDiaSemana());
+            dto.setHoraInicio(h.getHoraInicio());
+            dto.setHoraFin(h.getHoraFin());
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     private HorarioDto toDto(Horario h) {
@@ -83,5 +119,17 @@ public class HorarioServiceImpl implements HorarioService {
         dto.setHoraInicio(h.getHoraInicio());
         dto.setHoraFin(h.getHoraFin());
         return dto;
+    }
+    private String convertirDiaSemana(Byte dia) {
+        return switch (dia) {
+            case 1 -> "Lunes";
+            case 2 -> "Martes";
+            case 3 -> "Miércoles";
+            case 4 -> "Jueves";
+            case 5 -> "Viernes";
+            case 6 -> "Sábado";
+            case 7 -> "Domingo";
+            default -> "Día " + dia;
+        };
     }
 }

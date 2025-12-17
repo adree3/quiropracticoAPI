@@ -7,6 +7,7 @@ import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.ClienteMapper;
 import com.example.quiropracticoapi.model.Cliente;
 import com.example.quiropracticoapi.model.GrupoFamiliar;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.ClienteService;
@@ -23,13 +24,16 @@ public class ClienteServiceImpl implements ClienteService {
     private final ClienteRepository clienteRepository;
     private final ClienteMapper clienteMapper;
     private final GrupoFamiliarRepository grupoFamiliarRepository;
+    private final AuditoriaService auditoriaService;
+
 
 
     @Autowired
-    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper, GrupoFamiliarRepository grupoFamiliarRepository) {
+    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper, GrupoFamiliarRepository grupoFamiliarRepository, AuditoriaService auditoriaService) {
         this.clienteRepository = clienteRepository;
         this.clienteMapper = clienteMapper;
         this.grupoFamiliarRepository = grupoFamiliarRepository;
+        this.auditoriaService = auditoriaService;
     }
 
 
@@ -50,9 +54,16 @@ public class ClienteServiceImpl implements ClienteService {
         clienteRepository.findByEmail(clienteRequestDto.getEmail()).ifPresent(c -> {
             throw new IllegalArgumentException("El email" + clienteRequestDto.getEmail() + " ya existe.");
         });
-        // Si quiero que el telefeono sea unico pongo otra excepcion aqui
         Cliente cliente = clienteMapper.toCliente(clienteRequestDto);
+        cliente.setActivo(true);
         Cliente clienteGuardado = clienteRepository.save(cliente);
+        auditoriaService.registrarAccion(
+                TipoAccion.CREAR,
+                "CLIENTE",
+                clienteGuardado.getIdCliente().toString(),
+                "Nuevo paciente registrado: " + clienteGuardado.getNombre() + " " + clienteGuardado.getApellidos() +
+                        "."
+        );
         return clienteMapper.toClienteDto(clienteGuardado);
     }
 
@@ -60,9 +71,16 @@ public class ClienteServiceImpl implements ClienteService {
     public ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto) {
         Cliente clienteExistente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + id));
-        clienteMapper.updateClienteFromDto(clienteRequestDto, clienteExistente);
 
+        String datosPrevios = clienteExistente.getNombre() + " " + clienteExistente.getApellidos();
+        clienteMapper.updateClienteFromDto(clienteRequestDto, clienteExistente);
         Cliente clienteActualizado = clienteRepository.save(clienteExistente);
+        auditoriaService.registrarAccion(
+                TipoAccion.EDITAR,
+                "CLIENTE",
+                id.toString(),
+                "Actualización de datos personales. Nombre: " + clienteActualizado.getNombre() + " " + clienteActualizado.getApellidos()
+        );
 
         return clienteMapper.toClienteDto(clienteActualizado);
     }
@@ -74,6 +92,12 @@ public class ClienteServiceImpl implements ClienteService {
 
         cliente.setActivo(false);
         clienteRepository.save(cliente);
+        auditoriaService.registrarAccion(
+                TipoAccion.ELIMINAR_LOGICO,
+                "CLIENTE",
+                id.toString(),
+                "Paciente desactivado (enviado a papelera): " + cliente.getNombre() + " " + cliente.getApellidos()
+        );
     }
 
     @Override
@@ -109,7 +133,15 @@ public class ClienteServiceImpl implements ClienteService {
         grupo.setBeneficiario(beneficiario);
         grupo.setRelacion(relacion);
 
-        grupoFamiliarRepository.save(grupo);
+        GrupoFamiliar guardado = grupoFamiliarRepository.save(grupo);
+
+        auditoriaService.registrarAccion(
+                TipoAccion.CREAR,
+                "GRUPO_FAMILIAR",
+                guardado.getIdGrupo().toString(),
+                "Relación creada: " + propietario.getNombre() + " es propietario de -> " + beneficiario.getNombre() +
+                        " (Relación: " + relacion + ")"
+        );
     }
 
     @Override
@@ -119,14 +151,28 @@ public class ClienteServiceImpl implements ClienteService {
 
         cliente.setActivo(true);
         clienteRepository.save(cliente);
+        auditoriaService.registrarAccion(
+                TipoAccion.REACTIVAR,
+                "CLIENTE",
+                id.toString(),
+                "Paciente reactivado/restaurado: " + cliente.getNombre() + " " + cliente.getApellidos()
+        );
     }
 
     @Override
     public void deleteFamiliar(Integer idGrupo) {
-        if (!grupoFamiliarRepository.existsById(idGrupo)) {
-            throw new ResourceNotFoundException("Relación familiar no encontrada");
-        }
+        GrupoFamiliar grupo = grupoFamiliarRepository.findById(idGrupo)
+                .orElseThrow(() -> new ResourceNotFoundException("Relación familiar no encontrada"));
+
         grupoFamiliarRepository.deleteById(idGrupo);
+
+        auditoriaService.registrarAccion(
+                TipoAccion.ELIMINAR_FISICO,
+                "GRUPO_FAMILIAR",
+                idGrupo.toString(),
+                "Relación eliminada entre Propietario: " + grupo.getPropietario().getNombre() +
+                        " y Beneficiario: " + grupo.getBeneficiario().getNombre()
+        );
     }
 
     private Cliente getClienteByIdEntity(Integer id) {
