@@ -1,23 +1,14 @@
 package com.example.quiropracticoapi.service.impl;
 
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
-import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.BonoActivo;
-import com.example.quiropracticoapi.model.Cita;
-import com.example.quiropracticoapi.model.ConsumoBono;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
-import com.example.quiropracticoapi.repository.CitaRepository;
-import com.example.quiropracticoapi.repository.ConsumoBonoRepository;
-import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,18 +16,12 @@ import java.util.stream.Collectors;
 public class BonoServiceImpl implements BonoService {
 
     private final BonoActivoRepository bonoActivoRepository;
-    private final CitaRepository citaRepository;
-    private final ConsumoBonoRepository consumoBonoRepository;
-    private final GrupoFamiliarRepository grupoFamiliarRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public BonoServiceImpl(BonoActivoRepository bonoActivoRepository, CitaRepository citaRepository, ConsumoBonoRepository consumoBonoRepository, GrupoFamiliarRepository grupoFamiliarRepository, AuditoriaService auditoriaService) {
+    public BonoServiceImpl(BonoActivoRepository bonoActivoRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.bonoActivoRepository = bonoActivoRepository;
-        this.citaRepository = citaRepository;
-        this.consumoBonoRepository = consumoBonoRepository;
-        this.grupoFamiliarRepository = grupoFamiliarRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -70,7 +55,7 @@ public class BonoServiceImpl implements BonoService {
         bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
 
         bonoActivoRepository.save(bono);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "BONO",
                 bono.getIdBonoActivo().toString(),

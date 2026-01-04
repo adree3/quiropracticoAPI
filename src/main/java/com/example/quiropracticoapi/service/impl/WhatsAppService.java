@@ -21,7 +21,7 @@ public class WhatsAppService {
     private String fromNumber; // El número del Sandbox (+1415...)
 
     @Autowired
-    private AuditoriaService auditoriaService;
+    private AuditoriaServiceImpl auditoriaServiceImpl;
 
     // Inicializamos Twilio al arrancar la aplicación
     @PostConstruct
@@ -60,7 +60,7 @@ public class WhatsAppService {
                     new PhoneNumber(numeroOrigen),
                     cuerpoMensaje
             ).create();
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.NOTIFICACION,
                     "WHATSAPP",
                     nombrePaciente,
@@ -69,7 +69,7 @@ public class WhatsAppService {
             System.out.println("Mensaje enviado con SID: " + message.getSid());
 
         } catch (Exception e) {
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.ERROR,
                     "WHATSAPP",
                     nombrePaciente,

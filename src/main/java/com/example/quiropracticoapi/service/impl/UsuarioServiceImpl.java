@@ -18,13 +18,13 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, AuditoriaService auditoriaService) {
+    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -40,6 +40,10 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public UsuarioDto createUser(RegisterRequest request) {
+        if (usuarioRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException("USERNAME_TAKEN");
+        }
+
         Usuario user = new Usuario();
         user.setUsername(request.getUsername());
         user.setNombreCompleto(request.getNombreCompleto());
@@ -49,7 +53,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         Usuario guardado = usuarioRepository.save(user);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "USUARIO",
                 guardado.getUsername(),
@@ -79,7 +83,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         user.setRol(request.getRol());
         Usuario guardado = usuarioRepository.save(user);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "USUARIO",
                 guardado.getUsername(),
@@ -94,7 +98,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         Usuario user = usuarioRepository.findById(id).orElseThrow();
         user.setActivo(false);
         usuarioRepository.save(user);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_LOGICO,
                 "USUARIO",
                 user.getUsername(),
@@ -107,7 +111,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         Usuario user = usuarioRepository.findById(id).orElseThrow();
         user.setActivo(true);
         usuarioRepository.save(user);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.REACTIVAR,
                 "USUARIO",
                 user.getUsername(),
@@ -124,7 +128,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         user.setIntentosFallidos(0);
         usuarioRepository.save(user);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.UNLOCK,
                 "USUARIO",
                 user.getUsername(),

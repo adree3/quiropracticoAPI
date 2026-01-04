@@ -24,14 +24,15 @@ public class AgendaServiceImpl implements AgendaService {
     private final UsuarioRepository usuarioRepository;
     private final CitaRepository citaRepository;
     private final BloqueoAgendaRepository bloqueoAgendaRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
+
 
     @Autowired
-    public AgendaServiceImpl(UsuarioRepository usuarioRepository, CitaRepository citaRepository, BloqueoAgendaRepository bloqueoAgendaRepository, AuditoriaService auditoriaService) {
+    public AgendaServiceImpl(UsuarioRepository usuarioRepository, CitaRepository citaRepository, BloqueoAgendaRepository bloqueoAgendaRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.usuarioRepository = usuarioRepository;
         this.citaRepository = citaRepository;
         this.bloqueoAgendaRepository = bloqueoAgendaRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -83,7 +84,7 @@ public class AgendaServiceImpl implements AgendaService {
         }
 
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "BLOQUEO_AGENDA",
                 guardado.getIdBloqueo().toString(),
@@ -107,7 +108,7 @@ public class AgendaServiceImpl implements AgendaService {
         bloqueoAgendaRepository.deleteById(id);
         if (b != null) {
             String afectado = (b.getUsuario() != null) ?  b.getUsuario().getUsername() : "CLÍNICA";
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.ELIMINAR_FISICO,
                     "BLOQUEO_AGENDA",
                     id.toString(),
@@ -151,7 +152,7 @@ public class AgendaServiceImpl implements AgendaService {
         bloqueo.setMotivo(dto.getMotivo());
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "BLOQUEO_AGENDA",
                 guardado.getIdBloqueo().toString(),

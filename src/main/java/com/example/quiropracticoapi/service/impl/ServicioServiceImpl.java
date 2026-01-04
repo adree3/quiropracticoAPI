@@ -17,12 +17,12 @@ import java.util.List;
 public class ServicioServiceImpl implements ServicioService {
 
     private final ServicioRepository servicioRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public ServicioServiceImpl(ServicioRepository servicioRepository, AuditoriaService auditoriaService) {
+    public ServicioServiceImpl(ServicioRepository servicioRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.servicioRepository = servicioRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -47,7 +47,7 @@ public class ServicioServiceImpl implements ServicioService {
             detalle += ". Sesión suelta.";
         }
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "SERVICIO",
                 guardado.getIdServicio().toString(),
@@ -68,7 +68,7 @@ public class ServicioServiceImpl implements ServicioService {
 
         Servicio actualizado = servicioRepository.save(servicio);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "SERVICIO",
                 id.toString(),
@@ -85,7 +85,7 @@ public class ServicioServiceImpl implements ServicioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         servicio.setActivo(false);
         servicioRepository.save(servicio);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_LOGICO,
                 "SERVICIO",
                 id.toString(),
@@ -99,7 +99,7 @@ public class ServicioServiceImpl implements ServicioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado"));
         servicio.setActivo(true);
         servicioRepository.save(servicio);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.REACTIVAR,
                 "SERVICIO",
                 id.toString(),

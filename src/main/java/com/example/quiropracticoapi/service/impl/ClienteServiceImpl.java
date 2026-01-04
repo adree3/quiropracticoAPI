@@ -24,16 +24,16 @@ public class ClienteServiceImpl implements ClienteService {
     private final ClienteRepository clienteRepository;
     private final ClienteMapper clienteMapper;
     private final GrupoFamiliarRepository grupoFamiliarRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
 
 
     @Autowired
-    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper, GrupoFamiliarRepository grupoFamiliarRepository, AuditoriaService auditoriaService) {
+    public ClienteServiceImpl(ClienteRepository clienteRepository, ClienteMapper clienteMapper, GrupoFamiliarRepository grupoFamiliarRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.clienteRepository = clienteRepository;
         this.clienteMapper = clienteMapper;
         this.grupoFamiliarRepository = grupoFamiliarRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
 
@@ -57,7 +57,7 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = clienteMapper.toCliente(clienteRequestDto);
         cliente.setActivo(true);
         Cliente clienteGuardado = clienteRepository.save(cliente);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "CLIENTE",
                 clienteGuardado.getIdCliente().toString(),
@@ -75,7 +75,7 @@ public class ClienteServiceImpl implements ClienteService {
         String datosPrevios = clienteExistente.getNombre() + " " + clienteExistente.getApellidos();
         clienteMapper.updateClienteFromDto(clienteRequestDto, clienteExistente);
         Cliente clienteActualizado = clienteRepository.save(clienteExistente);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CLIENTE",
                 id.toString(),
@@ -92,7 +92,7 @@ public class ClienteServiceImpl implements ClienteService {
 
         cliente.setActivo(false);
         clienteRepository.save(cliente);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_LOGICO,
                 "CLIENTE",
                 id.toString(),
@@ -135,7 +135,7 @@ public class ClienteServiceImpl implements ClienteService {
 
         GrupoFamiliar guardado = grupoFamiliarRepository.save(grupo);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "GRUPO_FAMILIAR",
                 guardado.getIdGrupo().toString(),
@@ -151,7 +151,7 @@ public class ClienteServiceImpl implements ClienteService {
 
         cliente.setActivo(true);
         clienteRepository.save(cliente);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.REACTIVAR,
                 "CLIENTE",
                 id.toString(),
@@ -166,7 +166,7 @@ public class ClienteServiceImpl implements ClienteService {
 
         grupoFamiliarRepository.deleteById(idGrupo);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_FISICO,
                 "GRUPO_FAMILIAR",
                 idGrupo.toString(),

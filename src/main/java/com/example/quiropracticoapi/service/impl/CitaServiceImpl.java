@@ -34,13 +34,13 @@ public class CitaServiceImpl implements CitaService {
     private final BonoActivoRepository bonoActivoRepository;
     private final ConsumoBonoRepository consumoBonoRepository;
     private final WhatsAppService whatsAppService;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
 
 
 
     @Autowired
-    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService, AuditoriaService auditoriaService) {
+    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -50,7 +50,7 @@ public class CitaServiceImpl implements CitaService {
         this.bonoActivoRepository = bonoActivoRepository;
         this.consumoBonoRepository = consumoBonoRepository;
         this.whatsAppService = whatsAppService;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -68,7 +68,7 @@ public class CitaServiceImpl implements CitaService {
 
         BonoActivo bonoUsado = gestionarConsumoBono(citaGuardada, cliente, request.getIdBonoAUtilizar());
         String detallesPago = (bonoUsado != null) ? "Pago con Bono ID: " + bonoUsado.getIdBonoActivo() : "Pago Directo/Pendiente";
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "CITA",
                 citaGuardada.getIdCita().toString(),
@@ -190,7 +190,7 @@ public class CitaServiceImpl implements CitaService {
             consumo.setSesionesRestantesSnapshot(nuevoSaldo);
             consumoBonoRepository.save(consumo);
 
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.CONSUMO,
                     "BONO",
                     bonoGuardado.getIdBonoActivo().toString(),
@@ -228,7 +228,7 @@ public class CitaServiceImpl implements CitaService {
         EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(EstadoCita.cancelada);
         citaRepository.save(cita);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CITA",
                 idCita.toString(),
@@ -253,7 +253,7 @@ public class CitaServiceImpl implements CitaService {
         EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(nuevoEstado);
         Cita citaGuardada = citaRepository.save(cita);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CITA",
                 idCita.toString(),
@@ -294,7 +294,7 @@ public class CitaServiceImpl implements CitaService {
         }
 
         Cita actualizada = citaRepository.save(cita);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CITA",
                 idCita.toString(),

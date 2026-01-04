@@ -21,14 +21,14 @@ public class FamiliarServiceImpl implements FamiliarService {
     private final CitaRepository citaRepository;
     private final GrupoFamiliarRepository grupoFamiliarRepository;
     private final BonoService bonoService;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public FamiliarServiceImpl(CitaRepository citaRepository, GrupoFamiliarRepository grupoFamiliarRepository, BonoService bonoService, AuditoriaService auditoriaService) {
+    public FamiliarServiceImpl(CitaRepository citaRepository, GrupoFamiliarRepository grupoFamiliarRepository, BonoService bonoService, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.citaRepository = citaRepository;
         this.grupoFamiliarRepository = grupoFamiliarRepository;
         this.bonoService = bonoService;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -80,7 +80,7 @@ public class FamiliarServiceImpl implements FamiliarService {
             }
             citaRepository.saveAll(citas);
             if (citasCanceladasCount > 0) {
-                auditoriaService.registrarAccion(
+                auditoriaServiceImpl.registrarAccion(
                         TipoAccion.EDITAR,
                         "CITA",
                         "VARIAS (" + citasCanceladasCount + ")",
@@ -92,7 +92,7 @@ public class FamiliarServiceImpl implements FamiliarService {
 
         // 2. Borrar relación familiar
         grupoFamiliarRepository.deleteById(idGrupo);
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_FISICO,
                 "GRUPO_FAMILIAR",
                 idGrupo.toString(),

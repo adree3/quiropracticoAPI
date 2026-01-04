@@ -22,13 +22,13 @@ public class HorarioServiceImpl implements HorarioService {
 
     private final HorarioRepository horarioRepository;
     private final UsuarioRepository usuarioRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public HorarioServiceImpl(HorarioRepository horarioRepository, UsuarioRepository usuarioRepository, AuditoriaService auditoriaService) {
+    public HorarioServiceImpl(HorarioRepository horarioRepository, UsuarioRepository usuarioRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.horarioRepository = horarioRepository;
         this.usuarioRepository = usuarioRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -72,7 +72,7 @@ public class HorarioServiceImpl implements HorarioService {
         Horario guardado = horarioRepository.save(horario);
 
         String diaSemanaStr = convertirDiaSemana(guardado.getDiaSemana());
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "HORARIO",
                 guardado.getIdHorario().toString(),
@@ -89,7 +89,7 @@ public class HorarioServiceImpl implements HorarioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Horario no encontrado"));
         horarioRepository.deleteById(idHorario);
         String diaSemanaStr = convertirDiaSemana(h.getDiaSemana());
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_FISICO,
                 "HORARIO",
                 idHorario.toString(),

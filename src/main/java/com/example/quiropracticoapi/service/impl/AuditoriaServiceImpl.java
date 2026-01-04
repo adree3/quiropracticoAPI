@@ -15,13 +15,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 @Service
-public class AuditoriaService {
+public class AuditoriaServiceImpl {
 
     private final AuditoriaRepository auditoriaRepository;
     private final UsuarioRepository usuarioRepository;
 
     @Autowired
-    public AuditoriaService(AuditoriaRepository auditoriaRepository, UsuarioRepository usuarioRepository) {
+    public AuditoriaServiceImpl(AuditoriaRepository auditoriaRepository, UsuarioRepository usuarioRepository) {
         this.auditoriaRepository = auditoriaRepository;
         this.usuarioRepository = usuarioRepository;
     }
@@ -35,17 +35,35 @@ public class AuditoriaService {
      */
     @Async
     public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles) {
+        registrarAccion(accion, entidad, idEntidad, detalles, null);
+    }
+
+    /**
+     * Lo mismo que el anterior solo que implementa un campo para los login de usuarios
+     * @param accion (eliminar, crear...)
+     * @param entidad (cita, persona...)
+     * @param idEntidad identificador de la entidad
+     * @param detalles detalles extra
+     * @param usernameForzado el usuario a loggearse
+     */
+    @Async
+    public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado) {
         try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = (auth != null) ? auth.getName() : "SISTEMA";
+            String username;
+
+            if (usernameForzado != null) {
+                username = usernameForzado;
+            } else {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                username = (auth != null && auth.isAuthenticated()) ? auth.getName() : "SISTEMA";
+                if ("anonymousUser".equals(username)) username = "SISTEMA/WEB";
+            }
 
             Integer idUsuario = null;
-
-            if (!username.equals("SISTEMA") && !username.equals("anonymousUser")) {
+            if (!username.startsWith("SISTEMA")) {
                 Usuario u = usuarioRepository.findByUsername(username).orElse(null);
                 if (u != null) idUsuario = u.getIdUsuario();
             }
-
             Auditoria log = Auditoria.builder()
                     .fechaHora(LocalDateTime.now())
                     .idUsuarioResponsable(idUsuario)
@@ -57,7 +75,6 @@ public class AuditoriaService {
                     .build();
 
             auditoriaRepository.save(log);
-
         } catch (Exception e) {
             System.err.println("Error guardando auditoría: " + e.getMessage());
         }

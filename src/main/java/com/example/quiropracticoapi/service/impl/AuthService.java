@@ -25,15 +25,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, AuditoriaService auditoriaService) {
+    public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -51,7 +51,7 @@ public class AuthService {
         Usuario guardado = usuarioRepository.save(user);
         String jwtToken = jwtService.generateToken(user);
 
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
                 "USUARIO",
                 guardado.getUsername(),
@@ -87,11 +87,12 @@ public class AuthService {
 
             String jwtToken = jwtService.generateToken(user);
 
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.LOGIN,
                     "SESION",
                     user.getUsername(),
-                    "Inicio de sesión exitoso desde Web."
+                    "Inicio de sesión exitoso.",
+                    user.getUsername()
             );
             return AuthResponse.builder()
                     .token(jwtToken)
@@ -109,7 +110,7 @@ public class AuthService {
             if (nuevosIntentos >= maxIntentos) {
                 user.setCuentaBloqueada(true);
                 usuarioRepository.save(user);
-                auditoriaService.registrarAccion(
+                auditoriaServiceImpl.registrarAccion(
                         TipoAccion.BLOQUEADO,
                         "USUARIO",
                         user.getUsername(),

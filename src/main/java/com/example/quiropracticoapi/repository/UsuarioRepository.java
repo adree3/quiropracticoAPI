@@ -47,4 +47,12 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      */
     @Query("SELECT u FROM Usuario u WHERE u.rol = 'quiropráctico' AND u.activo = true")
     List<Usuario> findQuiropracticosActivos();
+
+    /**
+     * Comprueba si existe el usuario por su username
+     * @param username nombre a comprobar
+     * @return true o false
+     */
+    Boolean existsByUsername(String username);
+
 }

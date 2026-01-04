@@ -1,6 +1,5 @@
 package com.example.quiropracticoapi.service.impl;
 
-import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
@@ -30,15 +29,15 @@ public class PagoServiceImpl implements PagoService {
     private final BonoActivoRepository bonoActivoRepository;
     private final ClienteRepository clienteRepository;
     private final ServicioRepository servicioRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public PagoServiceImpl(PagoRepository pagoRepository, BonoActivoRepository bonoActivoRepository, ClienteRepository clienteRepository, ServicioRepository servicioRepository, AuditoriaService auditoriaService) {
+    public PagoServiceImpl(PagoRepository pagoRepository, BonoActivoRepository bonoActivoRepository, ClienteRepository clienteRepository, ServicioRepository servicioRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.pagoRepository = pagoRepository;
         this.bonoActivoRepository = bonoActivoRepository;
         this.clienteRepository = clienteRepository;
         this.servicioRepository = servicioRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -94,7 +93,7 @@ public class PagoServiceImpl implements PagoService {
 
         bonoActivoRepository.save(bono);
         String estadoPago = pagoGuardado.isPagado() ? "COBRADO" : "PENDIENTE DE PAGO";
-        auditoriaService.registrarAccion(
+        auditoriaServiceImpl.registrarAccion(
                 TipoAccion.VENTA,
                 "PAGO",
                 pagoGuardado.getIdPago().toString(),
@@ -125,7 +124,7 @@ public class PagoServiceImpl implements PagoService {
         pago.setPagado(true);
         pagoRepository.save(pago);
         if (!estadoAnterior) {
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.EDITAR,
                     "PAGO",
                     idPago.toString(),

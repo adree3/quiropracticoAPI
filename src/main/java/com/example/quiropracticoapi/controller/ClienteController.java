@@ -37,7 +37,7 @@ public class ClienteController {
     }
 
     @Operation(summary = "Obtener clientes paginados", description = "Devuelve una lista paginada de clientes.")
-    @GetMapping // Se mantiene el mapeo base
+    @GetMapping
     public ResponseEntity<Page<ClienteDto>> getAllClientes(
             @RequestParam(defaultValue = "true") Boolean activo,
             @RequestParam(defaultValue = "0") int page,

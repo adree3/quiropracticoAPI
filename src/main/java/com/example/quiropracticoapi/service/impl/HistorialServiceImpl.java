@@ -21,14 +21,14 @@ public class HistorialServiceImpl implements HistorialService {
 
     private final HistorialClinicoRepository historialRepo;
     private final CitaRepository citaRepository;
-    private final AuditoriaService auditoriaService;
+    private final AuditoriaServiceImpl auditoriaServiceImpl;
 
 
     @Autowired
-    public HistorialServiceImpl(HistorialClinicoRepository historialRepo, CitaRepository citaRepository, AuditoriaService auditoriaService) {
+    public HistorialServiceImpl(HistorialClinicoRepository historialRepo, CitaRepository citaRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.historialRepo = historialRepo;
         this.citaRepository = citaRepository;
-        this.auditoriaService = auditoriaService;
+        this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class HistorialServiceImpl implements HistorialService {
         HistorialClinico guardado = historialRepo.save(historial);
 
         if (esNuevo) {
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.CREAR,
                     "HISTORIAL_CLINICO",
                     guardado.getIdHistorial().toString(),
@@ -83,7 +83,7 @@ public class HistorialServiceImpl implements HistorialService {
                             ". Paciente: " + guardado.getCliente().getNombre()
             );
         } else {
-            auditoriaService.registrarAccion(
+            auditoriaServiceImpl.registrarAccion(
                     TipoAccion.EDITAR,
                     "HISTORIAL_CLINICO",
                     guardado.getIdHistorial().toString(),
