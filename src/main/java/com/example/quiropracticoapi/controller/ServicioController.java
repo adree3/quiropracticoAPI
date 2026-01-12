@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.CacheControl;
+import java.util.concurrent.TimeUnit;
 
 import java.util.List;
 
@@ -35,7 +37,9 @@ public class ServicioController {
     public ResponseEntity<List<Servicio>> getAll(
             @RequestParam(required = false) Boolean activo
     ) {
-        return ResponseEntity.ok(servicioService.getAllServicios(activo));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePublic())
+                .body(servicioService.getAllServicios(activo));
     }
 
     /**

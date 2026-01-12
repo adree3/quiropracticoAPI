@@ -46,16 +46,16 @@ public class StatsServiceImpl implements StatsService {
             LocalDateTime inicioDia = dia.toLocalDate().atStartOfDay();
             LocalDateTime finDia = dia.toLocalDate().atTime(23, 59, 59);
 
-            BigDecimal totalDia = pagoRepo.sumIngresosBetween(inicioDia, finDia);
+            Double totalDia = pagoRepo.sumTotalCobradoEnRango(inicioDia, finDia);
 
             String label = dia.getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT, new java.util.Locale("es", "ES"));
 
-            grafica.add(new ChartDataDto(label, totalDia != null ? totalDia.doubleValue() : 0.0));
+            grafica.add(new ChartDataDto(label, totalDia != null ? totalDia : 0.0));
         }
         return DashboardStatsDto.builder()
                 // DINERO
-                .ingresosHoy(pagoRepo.sumIngresosBetween(inicioHoy, finHoy))
-                .ingresosMes(pagoRepo.sumIngresosBetween(inicioMes, finMes))
+                .ingresosHoy(pagoRepo.sumTotalCobradoEnRango(inicioHoy, finHoy))
+                .ingresosMes(pagoRepo.sumTotalCobradoEnRango(inicioMes, finMes))
 
                 // CITAS
                 .citasHoyTotal(citaRepo.countByFechaHoraInicioBetween(inicioHoy, finHoy))

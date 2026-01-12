@@ -15,11 +15,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -52,7 +54,9 @@ public class ClienteController {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<ClienteDto> clientesPage = clienteService.getAllClientes(activo, pageable);
-        return ResponseEntity.ok(clientesPage);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS))
+                .body(clientesPage);
     }
 
     @Operation(summary = "Obtener un cliente por su ID", description = "Devuelve un cliente específico buscado por su ID.")
@@ -145,7 +149,9 @@ public class ClienteController {
             @RequestParam("texto") String texto) {
 
         List<ClienteDto> clientes = clienteService.searchClientesList(texto);
-        return ResponseEntity.ok(clientes);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS).cachePublic())
+                .body(clientes);
     }
 
     /**
@@ -165,7 +171,9 @@ public class ClienteController {
 
         Page<ClienteDto> resultados = clienteService.searchClientesPaged(texto, pageable);
 
-        return ResponseEntity.ok(resultados);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(30, TimeUnit.SECONDS).cachePublic())
+                .body(resultados);
     }
 
     /**

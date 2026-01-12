@@ -11,8 +11,8 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DashboardStatsDto {
-    private BigDecimal ingresosHoy;
-    private BigDecimal ingresosMes;
+    private Double ingresosHoy;
+    private Double ingresosMes;
 
     private long citasHoyTotal;
     private long citasHoyPendientes;

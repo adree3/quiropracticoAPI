@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.service.impl;
 
+import com.example.quiropracticoapi.dto.BalanceDto;
 import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
@@ -15,6 +16,10 @@ import com.example.quiropracticoapi.repository.PagoRepository;
 import com.example.quiropracticoapi.repository.ServicioRepository;
 import com.example.quiropracticoapi.service.PagoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +46,35 @@ public class PagoServiceImpl implements PagoService {
     }
 
     @Override
+    public Page<PagoDto> getPagos(LocalDateTime inicio, LocalDateTime fin, boolean pagado, String search, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaPago").descending());
+
+        Page<Pago> paginaResultados;
+
+        if (!pagado) {
+            paginaResultados = pagoRepository.findPendientesWithSearch(search, pageable);
+        } else {
+            if (inicio == null) inicio = LocalDateTime.of(2000, 1, 1, 0, 0);
+            if (fin == null) fin = LocalDateTime.now();
+
+            paginaResultados = pagoRepository.findHistorialWithSearch(inicio, fin, search, pageable);
+        }
+
+        return paginaResultados.map(this::toDto);
+    }
+
+    @Override
+    public BalanceDto getBalance(LocalDateTime inicio, LocalDateTime fin) {
+        if (inicio == null) inicio = LocalDateTime.of(2000, 1, 1, 0, 0);
+        if (fin == null) fin = LocalDateTime.now();
+
+        Double cobrado = pagoRepository.sumTotalCobradoEnRango(inicio, fin);
+        Double pendiente = pagoRepository.sumTotalPendienteGlobal();
+
+        return new BalanceDto(cobrado, pendiente);
+    }
+
+    @Override
     @Transactional
     public void registrarVentaBono(VentaBonoRequestDto request) {
         Cliente cliente = clienteRepository.findById(request.getIdCliente())
@@ -53,6 +87,7 @@ public class PagoServiceImpl implements PagoService {
         pago.setCliente(cliente);
         pago.setMonto(servicio.getPrecio());
         pago.setServicioPagado(servicio);
+        pago.setFechaPago(LocalDateTime.now());
         try {
             pago.setMetodoPago(MetodoPago.valueOf(request.getMetodoPago().toLowerCase()));
         } catch (IllegalArgumentException e) {
@@ -62,12 +97,7 @@ public class PagoServiceImpl implements PagoService {
         if (request.getPagado() != null) {
             pago.setPagado(request.getPagado());
         } else {
-            String metodo = request.getMetodoPago().toLowerCase();
-            if (metodo.equals("efectivo")) {
-                pago.setPagado(true);
-            } else {
-                pago.setPagado(false);
-            }
+            pago.setPagado(request.getMetodoPago().equalsIgnoreCase("efectivo"));
         }
 
         // Guardamos el pago para tener su ID
@@ -90,8 +120,8 @@ public class PagoServiceImpl implements PagoService {
 
         bono.setSesionesTotales(sesiones);
         bono.setSesionesRestantes(sesiones);
-
         bonoActivoRepository.save(bono);
+
         String estadoPago = pagoGuardado.isPagado() ? "COBRADO" : "PENDIENTE DE PAGO";
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.VENTA,
@@ -105,31 +135,21 @@ public class PagoServiceImpl implements PagoService {
     }
 
     @Override
-    public List<PagoDto> getPagosEnRango(LocalDateTime inicio, LocalDateTime fin) {
-        return pagoRepository.findByFechaPagoBetweenOrderByFechaPagoDesc(inicio, fin)
-                .stream().map(this::toDto).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<PagoDto> getPagosPendientes() {
-        return pagoRepository.findByPagadoFalseOrderByFechaPagoDesc()
-                .stream().map(this::toDto).collect(Collectors.toList());
-    }
-
-    @Override
     public void confirmarPago(Integer idPago) {
         Pago pago = pagoRepository.findById(idPago)
                 .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
-        boolean estadoAnterior = pago.isPagado();
-        pago.setPagado(true);
-        pagoRepository.save(pago);
-        if (!estadoAnterior) {
+
+        boolean estabaPagado = pago.isPagado();
+        if (!estabaPagado) {
+            pago.setPagado(true);
+            pago.setFechaPago(LocalDateTime.now());
+            pagoRepository.save(pago);
+
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.EDITAR,
                     "PAGO",
                     idPago.toString(),
-                    "Pago marcado como REALIZADO (estaba pendiente). Cliente: " + pago.getCliente().getNombre() +
-                            ". Monto: " + pago.getMonto()
+                    "Cobro confirmado: " + pago.getMonto() + "€ - " + pago.getCliente().getNombre()
             );
         }
     }

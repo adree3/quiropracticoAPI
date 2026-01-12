@@ -10,10 +10,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -43,7 +45,9 @@ public class UsuarioController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(usuarioService.getAllUsuarios(activo, PageRequest.of(page, size)));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(15, TimeUnit.MINUTES).cachePublic())
+                .body(usuarioService.getAllUsuarios(activo, PageRequest.of(page, size)));
     }
 
     /**
@@ -95,17 +99,18 @@ public class UsuarioController {
      */
     @GetMapping("/quiros")
     public ResponseEntity<List<UsuarioDto>> getQuiropracticos() {
-        return ResponseEntity.ok(
-                usuarioRepository.findByRol(Rol.quiropráctico)
-                        .stream()
-                        .map(u -> {
-                            UsuarioDto dto = new UsuarioDto();
-                            dto.setIdUsuario(u.getIdUsuario());
-                            dto.setNombreCompleto(u.getNombreCompleto());
-                            dto.setUsername(u.getUsername());
-                            return dto;
-                        })
-                        .collect(Collectors.toList())
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(15, TimeUnit.MINUTES).cachePublic())
+                .body(usuarioRepository.findByRol(Rol.quiropráctico)
+                    .stream()
+                    .map(u -> {
+                        UsuarioDto dto = new UsuarioDto();
+                        dto.setIdUsuario(u.getIdUsuario());
+                        dto.setNombreCompleto(u.getNombreCompleto());
+                        dto.setUsername(u.getUsername());
+                        return dto;
+                    })
+                    .collect(Collectors.toList())
         );
     }
 
@@ -130,7 +135,9 @@ public class UsuarioController {
                 })
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(dtos);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(2, TimeUnit.MINUTES).cachePublic())
+                .body(dtos);
     }
 
     /**
