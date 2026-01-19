@@ -8,6 +8,8 @@ import com.example.quiropracticoapi.model.enums.TipoServicio;
 import com.example.quiropracticoapi.repository.ServicioRepository;
 import com.example.quiropracticoapi.service.ServicioService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,11 +28,17 @@ public class ServicioServiceImpl implements ServicioService {
     }
 
     @Override
-    public List<Servicio> getAllServicios(Boolean activo) {
-        if (activo == null) {
-            return servicioRepository.findAll();
+    public Page<Servicio> getAllServicios(Boolean activo, Pageable pageable) {
+        if (activo != null) {
+            return servicioRepository.findByActivo(activo, pageable);
+        } else {
+            return servicioRepository.findAll(pageable);
         }
-        return servicioRepository.findByActivo(activo);
+    }
+
+    @Override
+    public List<Servicio> getServiciosParaDropdown() {
+        return servicioRepository.findByActivoTrueOrderByNombreServicioAsc();
     }
 
     @Override

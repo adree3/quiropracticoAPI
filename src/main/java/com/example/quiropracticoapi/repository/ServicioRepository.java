@@ -2,6 +2,8 @@ package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.Servicio;
 import com.example.quiropracticoapi.model.enums.TipoServicio;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,7 +15,13 @@ public interface ServicioRepository extends JpaRepository<Servicio, Integer> {
      * Busca todos los servicios activos
      * @return lista de servicios
      */
-    List<Servicio> findByActivoTrue();
+    Page<Servicio> findByActivoTrue(Pageable pageable);
+
+    /**
+     * Obtiene una lista de todos los servicios activos ordenados alfabeticamente
+     * @return lista de servicios
+     */
+    List<Servicio> findByActivoTrueOrderByNombreServicioAsc();
 
     /**
      * Busca todos los servicios activos de un tipo especifico (ej: todos los bonos activos)
@@ -27,5 +35,5 @@ public interface ServicioRepository extends JpaRepository<Servicio, Integer> {
      * @param activo indica si el servicio esta activo o no
      * @return lista de servicios
      */
-    List<Servicio> findByActivo(Boolean activo);
+    Page<Servicio> findByActivo(Boolean activo, Pageable pageable);
 }

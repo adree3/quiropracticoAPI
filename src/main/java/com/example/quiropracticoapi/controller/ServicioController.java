@@ -8,9 +8,12 @@ import com.example.quiropracticoapi.service.ServicioService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.CacheControl;
 import java.util.concurrent.TimeUnit;
 
 import java.util.List;
@@ -30,16 +33,38 @@ public class ServicioController {
     }
 
     /**
-     * Obtiene todos los servicios
-     * @return una lista de servicios
+     * Obtiene todos los servicios paginados y ordenados como se indique.
+     * @param activo para indicar si estan activos o no
+     * @param page numero de la pagina inicial
+     * @param size numero de registros
+     * @param sortBy atributo por el cual ordenar
+     * @param direction ascendente o descendente
+     * @return page de servicios
      */
     @GetMapping
-    public ResponseEntity<List<Servicio>> getAll(
-            @RequestParam(required = false) Boolean activo
+    public ResponseEntity<Page<Servicio>> getAll(
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "nombreServicio") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
     ) {
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePublic())
-                .body(servicioService.getAllServicios(activo));
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        return ResponseEntity.ok(servicioService.getAllServicios(activo, pageable));
+    }
+
+    /**
+     * Obtiene todos los servicios activos en una lista
+     * @return lista de servicios activos
+     */
+    @GetMapping("/list")
+    public ResponseEntity<List<Servicio>> getListaServicios() {
+        return ResponseEntity.ok(servicioService.getServiciosParaDropdown());
     }
 
     /**
