@@ -136,6 +136,16 @@ public class UsuarioServiceImpl implements UsuarioService {
         );
     }
 
+    @Override
+    public void lockUser(Integer id) {
+        Usuario user = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        user.setCuentaBloqueada(true);
+        user.setIntentosFallidos(5);
+        usuarioRepository.save(user);
+    }
+
     private UsuarioDto toDto(Usuario u) {
         UsuarioDto dto = new UsuarioDto();
         dto.setIdUsuario(u.getIdUsuario());

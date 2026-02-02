@@ -116,4 +116,28 @@ public class GlobalExceptionHandler {
         );
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
+
+    // Manejar Solapamiento de Horarios (Devolver 409 Conflict)
+    @ExceptionHandler(HorarioOverlapException.class)
+    public ResponseEntity<ErrorDto> handleHorarioOverlap(HorarioOverlapException ex) {
+        String codigoError = "CONFLICTO_" + ex.getTipoConflicto().toUpperCase();
+
+        ErrorDto error = new ErrorDto(
+                ex.getMessage(),
+                codigoError,
+                HttpStatus.CONFLICT.value()
+        );
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    // Manejar conflictos de bloqueos (Devolver 409 Conflict)
+    @ExceptionHandler(AgendaConflictException.class)
+    public ResponseEntity<ErrorDto> handleAgendaConflict(AgendaConflictException ex) {
+        ErrorDto error = new ErrorDto(
+                ex.getMessage(),
+                ex.getCodigo(),
+                HttpStatus.CONFLICT.value()
+        );
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
 }

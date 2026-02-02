@@ -12,4 +12,5 @@ public interface UsuarioService {
     void deleteUser(Integer id);
     void recoverUser(Integer id);
     void unlockUser(Integer id);
+    void lockUser(Integer id);
 }

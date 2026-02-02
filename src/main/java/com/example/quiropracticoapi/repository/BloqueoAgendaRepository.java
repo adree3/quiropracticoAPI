@@ -97,4 +97,20 @@ public interface BloqueoAgendaRepository extends JpaRepository<BloqueoAgenda, In
             @Param("inicioDia") LocalDateTime inicioDia,
             @Param("finDia") LocalDateTime finDia
     );
+
+    @Query("SELECT b FROM BloqueoAgenda b WHERE b.usuario.idUsuario = :idQuiro " +
+            "AND (b.fechaHoraInicio < :fin AND b.fechaHoraFin > :inicio)")
+    List<BloqueoAgenda> findBloqueosUsuarioQueSolapan(
+            @Param("idQuiro") Integer idQuiro,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
+
+    // Opcional: Si quieres detectar bloqueos individuales al crear uno global
+    @Query("SELECT b FROM BloqueoAgenda b WHERE b.usuario IS NOT NULL " +
+            "AND (b.fechaHoraInicio < :fin AND b.fechaHoraFin > :inicio)")
+    List<BloqueoAgenda> findCualquierBloqueoIndividualQueSolape(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
 }

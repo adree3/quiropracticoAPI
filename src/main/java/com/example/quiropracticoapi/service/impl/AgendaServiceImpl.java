@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.service.impl;
 
 import com.example.quiropracticoapi.dto.BloqueoAgendaDto;
+import com.example.quiropracticoapi.exception.AgendaConflictException;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.BloqueoAgenda;
 import com.example.quiropracticoapi.model.Cita;
@@ -36,7 +37,7 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
-    public BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto) {
+    public BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force, boolean undo) {
         if (dto.getFechaFin().isBefore(dto.getFechaInicio())) {
             throw new IllegalArgumentException("La fecha fin no puede ser anterior a la de inicio.");
         }
@@ -46,50 +47,102 @@ public class AgendaServiceImpl implements AgendaService {
         bloqueo.setFechaHoraFin(dto.getFechaFin());
         bloqueo.setMotivo(dto.getMotivo());
 
-        String afectado = "CLÍNICA (CIERRE GLOBAL)";
+        String afectado;
 
         if (dto.getIdQuiropractico() != null) {
             Usuario quiro = usuarioRepository.findById(dto.getIdQuiropractico())
                     .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
             bloqueo.setUsuario(quiro);
-
             afectado = quiro.getUsername();
 
             List<BloqueoAgenda> cierresGlobales = bloqueoAgendaRepository.findBloqueosClinicaQueSolapan(
                     dto.getFechaInicio(), dto.getFechaFin()
             );
             if (!cierresGlobales.isEmpty()) {
-                throw new IllegalArgumentException("Ya existe un cierre global en esas fechas.");
+                throw new AgendaConflictException(
+                        "Ya existe un cierre global en estas fechas.",
+                        "CONFLICTO_CIERRE_GLOBAL"
+                );
             }
+
+            List<BloqueoAgenda> bloqueosPropios = bloqueoAgendaRepository.findBloqueosUsuarioQueSolapan(
+                    dto.getIdQuiropractico(), dto.getFechaInicio(), dto.getFechaFin()
+            );
+            if (!bloqueosPropios.isEmpty()) {
+                throw new AgendaConflictException(
+                        "El doctor ya tiene un bloqueo en estas fechas.",
+                        "BLOQUEO_DUPLICADO"
+                );
+            }
+
             List<Cita> citasConflicto = citaRepository.findCitasConflictivas(
                     dto.getIdQuiropractico(), dto.getFechaInicio(), dto.getFechaFin(), null
             );
             if (!citasConflicto.isEmpty()) {
-                throw new IllegalArgumentException("No se puede bloquear: El doctor tiene " + citasConflicto.size() + " citas agendadas en ese periodo.");
+                int num = citasConflicto.size();
+                String msg = (num == 1)
+                        ? "El doctor tiene 1 cita agendada en ese periodo."
+                        : "El doctor tiene " + num + " citas agendadas en ese periodo.";
+                throw new AgendaConflictException(msg, "CITAS_EXISTENTES");
             }
         }else {
+            afectado = "CLÍNICA (CIERRE GLOBAL)";
+
             List<BloqueoAgenda> cierresExistentes = bloqueoAgendaRepository.findBloqueosClinicaQueSolapan(
                     dto.getFechaInicio(), dto.getFechaFin()
             );
             if (!cierresExistentes.isEmpty()) {
-                throw new IllegalArgumentException("Ya existe un cierre de clínica registrado.");
+                throw new AgendaConflictException(
+                        "Ya existe un cierre global registrado en estas fechas.",
+                        "BLOQUEO_GLOBAL_DUPLICADO"
+                );
             }
-            List<Cita> citasGlobales = citaRepository.findCitasConflictivasGlobales(
+            List<BloqueoAgenda> bloqueosIndividuales = bloqueoAgendaRepository.findCualquierBloqueoIndividualQueSolape(
                     dto.getFechaInicio(), dto.getFechaFin()
             );
 
+            if (!bloqueosIndividuales.isEmpty()) {
+                if (!force) {
+                    int num = bloqueosIndividuales.size();
+                    String msg = (num == 1)
+                            ? "Existe 1 bloqueo de un doctor en estas fechas."
+                            : "Existen " + num + " bloqueos de doctores en estas fechas.";
+                    throw new AgendaConflictException(msg, "CONFLICTO_BLOQUEO_INDIVIDUAL");
+                } else {
+                    bloqueoAgendaRepository.deleteAll(bloqueosIndividuales);
+
+                    int num = bloqueosIndividuales.size();
+                    String msgAudit = (num == 1)
+                            ? "Se ha eliminado 1 bloqueo individual al crear cierre global."
+                            : "Se han eliminado " + num + " bloqueos individuales al crear cierre global.";
+                    auditoriaServiceImpl.registrarAccion(
+                            TipoAccion.ELIMINAR_FISICO, "BLOQUEO_AGENDA", "VARIOS", msgAudit
+                    );
+                }
+            }
+
+            List<Cita> citasGlobales = citaRepository.findCitasConflictivasGlobales(
+                    dto.getFechaInicio(), dto.getFechaFin()
+            );
             if (!citasGlobales.isEmpty()) {
-                throw new IllegalArgumentException("No se puede cerrar la clínica: Hay " + citasGlobales.size() + " citas agendadas en total durante ese periodo.");
+                int num = citasGlobales.size();
+                String msg = (num == 1)
+                        ? "No se puede cerrar la clínica: Hay 1 cita agendada."
+                        : "No se puede cerrar la clínica: Hay " + num + " citas agendadas.";
+                throw new AgendaConflictException(msg, "CITAS_EXISTENTES_GLOBAL");
             }
         }
 
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
+        TipoAccion tipo = TipoAccion.CREAR;
+        String detalle = "Afectado: " + afectado + ". Motivo: " + guardado.getMotivo();
+        if (undo) {
+            tipo = TipoAccion.DESHACER;
+            detalle = "[UNDO] " + detalle;
+        }
         auditoriaServiceImpl.registrarAccion(
-                TipoAccion.CREAR,
-                "BLOQUEO_AGENDA",
-                guardado.getIdBloqueo().toString(),
-                "Afectado: " + afectado + ". Motivo: " + guardado.getMotivo() +
-                        ". Desde: " + guardado.getFechaHoraInicio() + " Hasta: " + guardado.getFechaHoraFin()
+                tipo, "BLOQUEO_AGENDA", guardado.getIdBloqueo().toString(),
+                 detalle+ " (" + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() + ")"
         );
         return mapBloqueoToDto(guardado);
     }
@@ -103,23 +156,29 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
-    public void borrarBloqueo(Integer id) {
+    public void borrarBloqueo(Integer id, boolean undo) {
         BloqueoAgenda b = bloqueoAgendaRepository.findById(id).orElse(null);
         bloqueoAgendaRepository.deleteById(id);
         if (b != null) {
             String afectado = (b.getUsuario() != null) ?  b.getUsuario().getUsername() : "CLÍNICA";
+            TipoAccion tipo = TipoAccion.ELIMINAR_FISICO;
+            String mensaje = "Bloqueo eliminado";
+            if (undo) {
+                tipo = TipoAccion.DESHACER;
+                mensaje = "[UNDO] " + mensaje + " por error";
+            }
             auditoriaServiceImpl.registrarAccion(
-                    TipoAccion.ELIMINAR_FISICO,
+                    tipo,
                     "BLOQUEO_AGENDA",
                     id.toString(),
-                    "Bloqueo eliminado para: " + afectado + ". Motivo original: " + b.getMotivo() +
+                    mensaje+ ": " + afectado + ". Motivo original: " + b.getMotivo() +
                             ". Fechas: " + b.getFechaHoraInicio() + " - " + b.getFechaHoraFin()
             );
         }
     }
 
     @Override
-    public BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto) {
+    public BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto, boolean undo) {
         BloqueoAgenda bloqueo = bloqueoAgendaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bloqueo no encontrado"));
 
@@ -133,7 +192,7 @@ public class AgendaServiceImpl implements AgendaService {
             List<BloqueoAgenda> conflictos = bloqueoAgendaRepository.findConflictoUsuarioExcluyendoId(
                     dto.getIdQuiropractico(), dto.getFechaInicio(), dto.getFechaFin(), id
             );
-            if (!conflictos.isEmpty()) throw new IllegalArgumentException("Ya existe otro bloqueo en esas fechas.");
+            if (!conflictos.isEmpty()) throw new AgendaConflictException("Ya existe otro bloqueo en estas fechas.", "BLOQUEO_DUPLICADO");
 
             Usuario u = usuarioRepository.findById(dto.getIdQuiropractico()).orElseThrow();
             bloqueo.setUsuario(u);
@@ -142,7 +201,7 @@ public class AgendaServiceImpl implements AgendaService {
             List<BloqueoAgenda> conflictos = bloqueoAgendaRepository.findConflictoGlobalExcluyendoId(
                     dto.getFechaInicio(), dto.getFechaFin(), id
             );
-            if (!conflictos.isEmpty()) throw new IllegalArgumentException("Ya hay un cierre global en esas fechas.");
+            if (!conflictos.isEmpty()) throw new AgendaConflictException("Ya hay un cierre global en estas fechas.", "CONFLICTO_CIERRE_GLOBAL");
             bloqueo.setUsuario(null);
             detallesCambio += ". Asignado a CLÍNICA";
         }
@@ -152,14 +211,21 @@ public class AgendaServiceImpl implements AgendaService {
         bloqueo.setMotivo(dto.getMotivo());
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
 
+        TipoAccion tipo = TipoAccion.EDITAR;
+        String mensaje = "Bloqueo actualizado. " + detallesCambio;
+
+        if (undo) {
+            tipo = TipoAccion.DESHACER;
+            mensaje = "[UNDO] Se restauraron los valores anteriores " + detallesCambio;
+        }
         auditoriaServiceImpl.registrarAccion(
-                TipoAccion.EDITAR,
+                tipo,
                 "BLOQUEO_AGENDA",
                 guardado.getIdBloqueo().toString(),
-                "Bloqueo reprogramado. Nuevas fechas: " + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() +
-                        ". " + detallesCambio
+                mensaje+ " (" + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() +
+                        ")"
         );
-        return mapBloqueoToDto(bloqueoAgendaRepository.save(bloqueo));
+        return mapBloqueoToDto(guardado);
     }
 
     private BloqueoAgendaDto mapBloqueoToDto(BloqueoAgenda b) {

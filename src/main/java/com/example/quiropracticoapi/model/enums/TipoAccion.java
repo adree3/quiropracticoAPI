@@ -12,5 +12,6 @@ public enum TipoAccion {
     CONSUMO,
     UNLOCK,
     NOTIFICACION,
-    ERROR
+    ERROR,
+    DESHACER
 }

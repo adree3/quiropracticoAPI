@@ -53,6 +53,17 @@ public class HorarioController {
     }
 
     /**
+     * Actualiza un horario existente
+     * @param id identificador del horario
+     * @param request nuevos datos
+     * @return horario actualizado
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<HorarioDto> update(@PathVariable Integer id, @Valid @RequestBody HorarioRequestDto request) {
+        return ResponseEntity.ok(horarioService.updateHorario(id, request));
+    }
+
+    /**
      * Elimina turno por id
      * @param id identificador del horario
      * @return respuesta de eliminar el turno

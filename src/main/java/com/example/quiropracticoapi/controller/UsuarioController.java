@@ -144,6 +144,12 @@ public class UsuarioController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{id}/bloquear")
+    public ResponseEntity<Void> lock(@PathVariable Integer id) {
+        usuarioService.lockUser(id);
+        return ResponseEntity.ok().build();
+    }
+
     /**
      * Cuenta el numero de bloqueados que hay
      * @return numero de bloqueados

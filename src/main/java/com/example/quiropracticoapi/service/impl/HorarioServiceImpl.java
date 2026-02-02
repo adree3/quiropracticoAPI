@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.service.impl;
 import com.example.quiropracticoapi.dto.HorarioDto;
 import com.example.quiropracticoapi.dto.HorarioGlobalDto;
 import com.example.quiropracticoapi.dto.HorarioRequestDto;
+import com.example.quiropracticoapi.exception.HorarioOverlapException;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.Horario;
 import com.example.quiropracticoapi.model.Usuario;
@@ -32,6 +33,20 @@ public class HorarioServiceImpl implements HorarioService {
     }
 
     @Override
+    public List<HorarioGlobalDto> getAllHorariosActivos() {
+        List<Horario> horarios = horarioRepository.findByQuiropracticoActivoTrue();
+        return horarios.stream().map(h -> {
+            HorarioGlobalDto dto = new HorarioGlobalDto();
+            dto.setIdHorario(h.getIdHorario());
+            dto.setIdQuiropractico(h.getQuiropractico().getIdUsuario());
+            dto.setDiaSemana(h.getDiaSemana());
+            dto.setHoraInicio(h.getHoraInicio());
+            dto.setHoraFin(h.getHoraFin());
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
     public List<HorarioDto> getHorariosByQuiropractico(Integer idQuiro) {
         return horarioRepository.findByQuiropracticoIdUsuario(idQuiro).stream()
                 .map(this::toDto)
@@ -41,9 +56,7 @@ public class HorarioServiceImpl implements HorarioService {
     @Override
     @Transactional
     public HorarioDto createHorario(HorarioRequestDto request) {
-        if (!request.getHoraFin().isAfter(request.getHoraInicio())) {
-            throw new IllegalArgumentException("La hora de fin debe ser posterior al inicio");
-        }
+        validarLogicaHoras(request);
 
         Usuario quiro = usuarioRepository.findById(request.getIdQuiropractico())
                 .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
@@ -52,16 +65,8 @@ public class HorarioServiceImpl implements HorarioService {
                 quiro.getIdUsuario(),
                 request.getDiaSemana().byteValue()
         );
-
-        for (Horario existente : horariosDelDia) {
-            if (request.getHoraInicio().isBefore(existente.getHoraFin()) &&
-                    request.getHoraFin().isAfter(existente.getHoraInicio())) {
-                throw new IllegalArgumentException(
-                        "El nuevo turno se solapa con uno existente (" +
-                                existente.getHoraInicio() + " - " + existente.getHoraFin() + ")"
-                );
-            }
-        }
+        String nombreDia = convertirDiaSemana(request.getDiaSemana().byteValue());
+        validarConflictos(horariosDelDia, request, null, nombreDia, false);
 
         Horario horario = new Horario();
         horario.setQuiropractico(quiro);
@@ -71,17 +76,55 @@ public class HorarioServiceImpl implements HorarioService {
 
         Horario guardado = horarioRepository.save(horario);
 
-        String diaSemanaStr = convertirDiaSemana(guardado.getDiaSemana());
         auditoriaServiceImpl.registrarAccion(
-                TipoAccion.CREAR,
-                "HORARIO",
-                guardado.getIdHorario().toString(),
-                "Nuevo turno asignado a: " + quiro.getNombreCompleto() +
-                        ". Día: " + diaSemanaStr + ". Horario: " + guardado.getHoraInicio() + " - " + guardado.getHoraFin()
+                TipoAccion.CREAR, "HORARIO", guardado.getIdHorario().toString(),
+                "Nuevo turno: " + quiro.getNombreCompleto() + " (" + nombreDia + " " + guardado.getHoraInicio() + "-" + guardado.getHoraFin() + ")"
         );
-
         return toDto(guardado);
     }
+
+    @Override
+    @Transactional
+    public HorarioDto updateHorario(Integer idHorario, HorarioRequestDto request) {
+        validarLogicaHoras(request);
+
+        Horario horario = horarioRepository.findById(idHorario)
+                .orElseThrow(() -> new ResourceNotFoundException("Horario no encontrado"));
+
+        Byte diaOriginal = horario.getDiaSemana();
+
+        Usuario quiro = horario.getQuiropractico();
+        if (!quiro.getIdUsuario().equals(request.getIdQuiropractico())) {
+            quiro = usuarioRepository.findById(request.getIdQuiropractico())
+                    .orElseThrow(() -> new ResourceNotFoundException("Nuevo quiropráctico no encontrado"));
+        }
+
+        List<Horario> horariosDelDia = horarioRepository.findByQuiropracticoIdUsuarioAndDiaSemana(
+                quiro.getIdUsuario(),
+                request.getDiaSemana().byteValue()
+        );
+
+        boolean haCambiadoDeDia = !diaOriginal.equals(request.getDiaSemana().byteValue());
+        String nombreDia = convertirDiaSemana(request.getDiaSemana().byteValue());
+
+        validarConflictos(horariosDelDia, request, idHorario, nombreDia, haCambiadoDeDia);
+
+        // Actualizar
+        horario.setQuiropractico(quiro);
+        horario.setDiaSemana(request.getDiaSemana().byteValue());
+        horario.setHoraInicio(request.getHoraInicio());
+        horario.setHoraFin(request.getHoraFin());
+
+        Horario actualizado = horarioRepository.save(horario);
+
+        auditoriaServiceImpl.registrarAccion(
+                TipoAccion.EDITAR, "HORARIO", actualizado.getIdHorario().toString(),
+                "Turno modificado: " + quiro.getNombreCompleto() + " (" + nombreDia + " " + actualizado.getHoraInicio() + "-" + actualizado.getHoraFin() + ")"
+        );
+
+        return toDto(actualizado);
+    }
+
 
     @Override
     public void deleteHorario(Integer idHorario) {
@@ -98,18 +141,49 @@ public class HorarioServiceImpl implements HorarioService {
         );
     }
 
-    @Override
-    public List<HorarioGlobalDto> getAllHorariosActivos() {
-        List<Horario> horarios = horarioRepository.findByQuiropracticoActivoTrue();
-        return horarios.stream().map(h -> {
-            HorarioGlobalDto dto = new HorarioGlobalDto();
-            dto.setIdHorario(h.getIdHorario());
-            dto.setIdQuiropractico(h.getQuiropractico().getIdUsuario());
-            dto.setDiaSemana(h.getDiaSemana());
-            dto.setHoraInicio(h.getHoraInicio());
-            dto.setHoraFin(h.getHoraFin());
-            return dto;
-        }).collect(Collectors.toList());
+    private void validarLogicaHoras(HorarioRequestDto request) {
+        if (!request.getHoraFin().isAfter(request.getHoraInicio())) {
+            throw new HorarioOverlapException("La hora de fin debe ser posterior al inicio", "HORA");
+        }
+    }
+
+    /**
+     * Lógica centralizada de validación de choques
+     */
+    private void validarConflictos(List<Horario> existentes, HorarioRequestDto request, Integer idAExcluir, String nombreDia, boolean esCambioDia) {
+        for (Horario existente : existentes) {
+            if (existente.getIdHorario().equals(idAExcluir)) {
+                continue;
+            }
+
+            // Comprobar si hay intersección de rangos
+            if (request.getHoraInicio().isBefore(existente.getHoraFin()) &&
+                    request.getHoraFin().isAfter(existente.getHoraInicio())) {
+
+                if (esCambioDia) {
+                    throw new HorarioOverlapException(
+                            "El " + nombreDia + " ya tiene un turno que se solapa: " +
+                                    existente.getHoraInicio() + " - " + existente.getHoraFin(),
+                            "DIA"
+                    );
+                }
+
+                boolean esExacto = request.getHoraInicio().equals(existente.getHoraInicio()) &&
+                        request.getHoraFin().equals(existente.getHoraFin());
+
+                if (esExacto) {
+                    throw new HorarioOverlapException(
+                            "Ya existe un turno idéntico (" + existente.getHoraInicio() + " - " + existente.getHoraFin() + ") en este día.",
+                            "DUPLICADO"
+                    );
+                }
+
+                throw new HorarioOverlapException(
+                        "El " + nombreDia + " ya tiene un turno (" + existente.getHoraInicio() + " - " + existente.getHoraFin() + ") que se solapa con el nuevo horario.",
+                        "HORA"
+                );
+            }
+        }
     }
 
     private HorarioDto toDto(Horario h) {

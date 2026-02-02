@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.controller;
 import com.example.quiropracticoapi.dto.BloqueoAgendaDto;
 import com.example.quiropracticoapi.service.AgendaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,8 +27,12 @@ public class AgendaController {
      * @return respuesta de crear el bloqueo
      */
     @PostMapping
-    public ResponseEntity<BloqueoAgendaDto> crearBloqueo(@RequestBody BloqueoAgendaDto dto) {
-        return ResponseEntity.ok(agendaService.crearBloqueo(dto));
+    public ResponseEntity<BloqueoAgendaDto> crearBloqueo(
+            @Valid @RequestBody BloqueoAgendaDto dto,
+            @RequestParam(defaultValue = "false") boolean force,
+            @RequestParam(defaultValue = "false") boolean undo
+    ) {
+        return ResponseEntity.ok(agendaService.crearBloqueo(dto, force, undo));
     }
 
     /**
@@ -45,8 +50,11 @@ public class AgendaController {
      * @return respuesta de borrar el bloqueo
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> borrar(@PathVariable Integer id) {
-        agendaService.borrarBloqueo(id);
+    public ResponseEntity<Void> borrar(
+            @PathVariable Integer id,
+            @RequestParam(defaultValue = "false") boolean undo
+            ) {
+        agendaService.borrarBloqueo(id, undo);
         return ResponseEntity.ok().build();
     }
 
@@ -57,7 +65,11 @@ public class AgendaController {
      * @return bloqueo editado
      */
     @PutMapping("/{id}")
-    public ResponseEntity<BloqueoAgendaDto> actualizarBloqueo(@PathVariable Integer id, @RequestBody BloqueoAgendaDto dto) {
-        return ResponseEntity.ok(agendaService.actualizarBloqueo(id, dto));
+    public ResponseEntity<BloqueoAgendaDto> actualizarBloqueo(
+            @PathVariable Integer id,
+            @RequestBody BloqueoAgendaDto dto,
+            @RequestParam(defaultValue = "false") boolean undo
+    ) {
+        return ResponseEntity.ok(agendaService.actualizarBloqueo(id, dto, undo));
     }
 }

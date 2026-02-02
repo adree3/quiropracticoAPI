@@ -15,4 +15,6 @@ public interface HorarioService {
     void deleteHorario(Integer idHorario);
 
     List<HorarioGlobalDto> getAllHorariosActivos();
+
+    HorarioDto updateHorario(Integer idHorario, HorarioRequestDto request);
 }
