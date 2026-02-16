@@ -29,11 +29,10 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
      * @param clienteId identificador del cliente
      * @return lista de bonos disponibles
      */
-    @Query("SELECT b FROM BonoActivo b " +
-            "LEFT JOIN GrupoFamiliar g ON b.cliente.idCliente = g.propietario.idCliente " +
-            "WHERE b.sesionesRestantes > 0 " +
-            "AND (b.cliente.idCliente = :clienteId OR g.beneficiario.idCliente = :clienteId) " +
-            "ORDER BY b.fechaCompra ASC")
+    @Query("SELECT b FROM BonoActivo b WHERE b.sesionesRestantes > 0 AND (" +
+            "b.cliente.idCliente = :clienteId OR " +
+            "b.cliente.idCliente IN (SELECT g.propietario.idCliente FROM GrupoFamiliar g WHERE g.beneficiario.idCliente = :clienteId)" +
+            ") ORDER BY b.fechaCompra ASC")
     List<BonoActivo> findBonosDisponiblesParaCliente(@Param("clienteId") Integer clienteId);
 }
 

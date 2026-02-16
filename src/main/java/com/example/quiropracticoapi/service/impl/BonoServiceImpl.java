@@ -1,9 +1,13 @@
 package com.example.quiropracticoapi.service.impl;
 
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
+import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.model.BonoActivo;
+import com.example.quiropracticoapi.model.Cita;
+import com.example.quiropracticoapi.model.ConsumoBono;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
+import com.example.quiropracticoapi.repository.ConsumoBonoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,11 +20,15 @@ import java.util.stream.Collectors;
 public class BonoServiceImpl implements BonoService {
 
     private final BonoActivoRepository bonoActivoRepository;
+    private final ConsumoBonoRepository consumoBonoRepository;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
 
     @Autowired
-    public BonoServiceImpl(BonoActivoRepository bonoActivoRepository, AuditoriaServiceImpl auditoriaServiceImpl) {
+    public BonoServiceImpl(BonoActivoRepository bonoActivoRepository,
+                           ConsumoBonoRepository consumoBonoRepository,
+                           AuditoriaServiceImpl auditoriaServiceImpl) {
         this.bonoActivoRepository = bonoActivoRepository;
+        this.consumoBonoRepository = consumoBonoRepository;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
@@ -41,6 +49,15 @@ public class BonoServiceImpl implements BonoService {
                         dto.setPropietarioNombre(b.getCliente().getNombre() + " (Familiar)");
                         dto.setEsPropio(false);
                     }
+
+                    if (b.getPagoOrigen() != null) {
+                        dto.setEsPagado(b.getPagoOrigen().isPagado());
+                    } else {
+                        dto.setEsPagado(false); 
+                    }
+
+                    dto.setFechaCompra(b.getFechaCompra());
+
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -49,12 +66,26 @@ public class BonoServiceImpl implements BonoService {
     @Override
     @Transactional
     public void devolverSesion(Integer idBonoActivo) {
+        devolverSesion(idBonoActivo, null);
+    }
+
+    @Override
+    @Transactional
+    public void devolverSesion(Integer idBonoActivo, Integer idCita) {
         BonoActivo bono = bonoActivoRepository.findById(idBonoActivo)
                 .orElseThrow(() -> new RuntimeException("Error crítico: Se intenta devolver sesión a un bono inexistente ID: " + idBonoActivo));
         int saldoAnterior = bono.getSesionesRestantes();
         bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
 
         bonoActivoRepository.save(bono);
+
+        // Si hay Cita, eliminar el registro de consumo asociado para limpiar el historial
+        if (idCita != null) {
+            // Buscamos el consumo asociado a esta cita
+            var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
+            consumoOpt.ifPresent(consumoBonoRepository::delete);
+        }
+
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "BONO",
@@ -63,5 +94,85 @@ public class BonoServiceImpl implements BonoService {
                         "Cliente: " + bono.getCliente().getNombre() + " " + bono.getCliente().getApellidos() +
                         ". Saldo actualizado: " + saldoAnterior + " -> " + bono.getSesionesRestantes()
         );
+    }
+
+    @Override
+    @Transactional
+    public void consumirSesion(Integer idBonoActivo) {
+        consumirSesion(idBonoActivo, null);
+    }
+
+    @Override
+    @Transactional
+    public void consumirSesion(Integer idBonoActivo, Integer idCita) {
+        BonoActivo bono = bonoActivoRepository.findById(idBonoActivo)
+                .orElseThrow(() -> new RuntimeException("Error crítico: Se intenta consumir sesión de un bono inexistente ID: " + idBonoActivo));
+
+        if (bono.getSesionesRestantes() <= 0) {
+            throw new RuntimeException("No quedan sesiones en el bono para restaurar la cita.");
+        }
+
+        int saldoAnterior = bono.getSesionesRestantes();
+        bono.setSesionesRestantes(saldoAnterior - 1);
+        BonoActivo guardado = bonoActivoRepository.save(bono);
+
+        // Si hay cita, crear registro de ConsumoBono
+        if (idCita != null) {
+            ConsumoBono consumo = new ConsumoBono();
+            Cita citaRef = new Cita();
+            citaRef.setIdCita(idCita); 
+            consumo.setCita(citaRef);
+            consumo.setBonoActivo(guardado);
+            consumo.setSesionesRestantesSnapshot(guardado.getSesionesRestantes());
+            
+            // Asignar fecha actual como fecha de consumo (o la de la cita si preferimos, pero fechaConsumo suele ser "cuando se descuenta")
+            consumo.setFechaConsumo(java.time.LocalDateTime.now());
+            
+            consumoBonoRepository.save(consumo);
+        }
+
+        auditoriaServiceImpl.registrarAccion(
+                TipoAccion.CONSUMO,
+                "BONO",
+                bono.getIdBonoActivo().toString(),
+                "Sesión consumida (Restauración/Undo). " +
+                        "Cliente: " + bono.getCliente().getNombre() + " " + bono.getCliente().getApellidos() +
+                        ". Saldo actualizado: " + saldoAnterior + " -> " + bono.getSesionesRestantes()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConsumoBonoDto> getHistorialBono(Integer idBonoActivo) {
+        return consumoBonoRepository.findByBonoActivoIdBonoActivo(idBonoActivo).stream()
+                .map(consumo -> {
+                    ConsumoBonoDto dto = new ConsumoBonoDto();
+                    dto.setIdConsumo(consumo.getIdConsumo());
+                    dto.setFechaConsumo(consumo.getFechaConsumo());
+                    dto.setSesionesRestantesSnapshot(consumo.getSesionesRestantesSnapshot());
+
+                    if (consumo.getCita() != null) {
+                        dto.setIdCita(consumo.getCita().getIdCita());
+                        dto.setFechaCita(consumo.getCita().getFechaHoraInicio());
+                        if (consumo.getCita().getEstado() != null) {
+                            dto.setEstadoCita(consumo.getCita().getEstado().name());
+                        }
+                        // Obtener nombre quiropráctico de la cita si existe
+                        if (consumo.getCita().getQuiropractico() != null) {
+                            dto.setNombreQuiropractico(consumo.getCita().getQuiropractico().getNombreCompleto());
+                        }
+                        // Obtener nombre del paciente de la cita
+                        if (consumo.getCita().getCliente() != null) {
+                            dto.setIdPaciente(consumo.getCita().getCliente().getIdCliente());
+                            dto.setNombrePaciente(consumo.getCita().getCliente().getNombre());
+                        }
+                    }
+                    return dto;
+                })
+                .sorted((a, b) -> {
+                    if (b.getFechaConsumo() == null || a.getFechaConsumo() == null) return 0;
+                    return b.getFechaConsumo().compareTo(a.getFechaConsumo());
+                })
+                .collect(Collectors.toList());
     }
 }

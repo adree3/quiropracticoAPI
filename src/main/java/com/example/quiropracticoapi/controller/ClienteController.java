@@ -37,10 +37,12 @@ public class ClienteController {
         this.grupoFamiliarRepository = grupoFamiliarRepository;
     }
 
-    @Operation(summary = "Obtener clientes paginados", description = "Devuelve una lista paginada de clientes.")
+    @Operation(summary = "Obtener clientes paginados con filtros", description = "Devuelve una lista paginada de clientes con filtros opcionales (estado, búsqueda, actividad reciente).")
     @GetMapping
     public ResponseEntity<Page<ClienteDto>> getAllClientes(
-            @RequestParam(defaultValue = "true") Boolean activo,
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) Integer lastActivityDays,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "idCliente") String sortBy,
@@ -52,7 +54,12 @@ public class ClienteController {
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<ClienteDto> clientesPage = clienteService.getAllClientes(activo, pageable);
+        Page<ClienteDto> clientesPage = clienteService.findClientesWithFilters(
+            activo,
+            texto,
+            lastActivityDays,
+            pageable
+        );
         return ResponseEntity.ok(clientesPage);
     }
 
@@ -87,9 +94,10 @@ public class ClienteController {
     @PutMapping("/{id}")
     public ResponseEntity<ClienteDto> updateCliente(
             @PathVariable Integer id,
-            @Valid @RequestBody ClienteRequestDto clienteRequestDto) {
+            @Valid @RequestBody ClienteRequestDto clienteRequestDto,
+            @RequestParam(required = false, defaultValue = "false") boolean undo) {
 
-        ClienteDto clienteActualizado = clienteService.updateCliente(id, clienteRequestDto);
+        ClienteDto clienteActualizado = clienteService.updateCliente(id, clienteRequestDto, undo);
         return ResponseEntity.ok(clienteActualizado);
     }
 
@@ -99,8 +107,11 @@ public class ClienteController {
             @ApiResponse(responseCode = "404", description = "Cliente no encontrado")
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCliente(@PathVariable Integer id) {
-        clienteService.deleteCliente(id);
+    public ResponseEntity<Void> deleteCliente(
+            @PathVariable Integer id,
+            @RequestParam(required = false, defaultValue = "false") boolean undo
+    ) {
+        clienteService.deleteCliente(id, undo);
         return ResponseEntity.noContent().build();
     }
 
@@ -109,9 +120,11 @@ public class ClienteController {
     public ResponseEntity<Void> agregarFamiliar(
             @PathVariable Integer idPropietario,
             @RequestParam Integer idBeneficiario,
-            @RequestParam String relacion
+            @RequestParam String relacion,
+            @RequestParam(required = false, defaultValue = "false") boolean undo,
+            @RequestParam(required = false) List<Integer> idsCitasARestaurar
     ) {
-        clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion);
+        clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion, undo, idsCitasARestaurar);
         return ResponseEntity.ok().build();
     }
 
@@ -175,8 +188,11 @@ public class ClienteController {
      * @return la respuesta de confirmacion
      */
     @PutMapping("/{id}/recuperar")
-    public ResponseEntity<Void> recoverCliente(@PathVariable Integer id) {
-        clienteService.recoverCliente(id);
+    public ResponseEntity<Void> recoverCliente(
+            @PathVariable Integer id,
+            @RequestParam(required = false, defaultValue = "false") boolean undo
+    ) {
+        clienteService.recoverCliente(id, undo);
         return ResponseEntity.ok().build();
     }
 

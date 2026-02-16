@@ -28,8 +28,9 @@ public class FamiliarController {
 
     @PostMapping("/{idGrupo}/desvincular")
     public ResponseEntity<Void> desvincular(@PathVariable Integer idGrupo,
-                                            @RequestBody DesvinculacionRequestDto request) {
-        familiarService.desvincularFamiliar(idGrupo, request.getIdsCitasACancelar());
+                                            @RequestBody DesvinculacionRequestDto request,
+                                            @RequestParam(required = false, defaultValue = "false") boolean undo) {
+        familiarService.desvincularFamiliar(idGrupo, request.getIdsCitasACancelar(), undo);
         return ResponseEntity.noContent().build();
     }
 }

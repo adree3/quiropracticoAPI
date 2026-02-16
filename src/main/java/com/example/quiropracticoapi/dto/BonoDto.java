@@ -17,4 +17,5 @@ public class BonoDto {
     private int sesionesTotales;
     private int sesionesRestantes;
     private LocalDate fechaCaducidad;
+    private LocalDate fechaCompra;
 }

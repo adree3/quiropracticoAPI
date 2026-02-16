@@ -34,17 +34,19 @@ public interface ClienteService {
      * Actualiza un cliente existente.
      * @param id El ID del cliente a actualizar.
      * @param clienteRequestDto El objeto con los nuevos datos.
+     * @param undo Indica si es una accion de deshacer.
      * @return El cliente actualizado.
      * @throws com.example.quiropracticoapi.exception.ResourceNotFoundException si no se encuentra.
      */
-    ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto);
+    ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto, boolean undo);
 
     /**
      * Elimina un cliente por su ID.
      * @param id El ID del cliente a eliminar.
+     * @param undo Indica si es una accion de deshacer.
      * @throws com.example.quiropracticoapi.exception.ResourceNotFoundException si no se encuentra.
      */
-    void deleteCliente(Integer id);
+    void deleteCliente(Integer id, boolean undo);
 
     /**
      * Busca clientes cuyos apellidos contengan el textoBuscado.
@@ -62,18 +64,34 @@ public interface ClienteService {
     Page<ClienteDto> searchClientesPaged(String texto, Pageable pageable);
 
     /**
+     * Busca clientes con filtros opcionales flexibles (unifica getAllClientes y searchClientes)
+     * @param activo true para activos, false para inactivos, null para todos
+     * @param texto búsqueda global por nombre/apellido/teléfono (opcional)
+     * @param lastActivityDays número de días para filtrar por última actividad (opcional)
+     * @param pageable paginación y ordenamiento
+     * @return page de clientes que cumplen los criterios, con información extendida
+     */
+    Page<ClienteDto> findClientesWithFilters(
+        Boolean activo,
+        String texto,
+        Integer lastActivityDays,
+        Pageable pageable
+    );
+
+    /**
      * Vincula dos clientes en un grupo familiar.
      * @param idPropietario El dueño de los bonos.
      * @param idBeneficiario Quien podrá usarlos.
      * @param relacion Texto descriptivo (ej. "Hijo", "Pareja").
      */
-    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);
+    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion, boolean undo, List<Integer> idsCitasARestaurar);
 
     /**
      * Cambia el cliente a activo
      * @param id identificador cliente
+     * @param undo Indica si es una accion de deshacer.
      */
-    void recoverCliente(Integer id);
+    void recoverCliente(Integer id, boolean undo);
 
     /**
      * Elimina a un familiar.

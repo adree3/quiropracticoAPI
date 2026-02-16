@@ -63,6 +63,31 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     Page<Cliente> searchGlobalPaged(@Param("texto") String texto, Pageable pageable);
 
     /**
+     * Query unificada y flexible para búsqueda con múltiples filtros opcionales
+     * @param activo true/false para filtrar por estado, null para todos
+     * @param texto búsqueda global por nombre, apellido o teléfono, null o vacío para omitir
+     * @param ultimaCitaDesde fecha mínima de última cita completada, null para omitir
+     * @param pageable paginación y ordenamiento
+     * @return page de clientes que cumplen los criterios
+     */
+    @Query("SELECT DISTINCT c FROM Cliente c " +
+           "WHERE " +
+           "(:activo IS NULL OR c.activo = :activo) AND " +
+           "(:texto IS NULL OR :texto = '' OR " +
+           "  LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
+           "  LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
+           "  c.telefono LIKE CONCAT('%', :texto, '%')) AND " +
+           "(:ultimaCitaDesde IS NULL OR EXISTS (" +
+           "  SELECT 1 FROM Cita ct WHERE ct.cliente.idCliente = c.idCliente " +
+           "  AND ct.estado = 'completada' AND ct.fechaHoraInicio >= :ultimaCitaDesde))")
+    Page<Cliente> findClientesFiltered(
+        @Param("activo") Boolean activo,
+        @Param("texto") String texto,
+        @Param("ultimaCitaDesde") LocalDateTime ultimaCitaDesde,
+        Pageable pageable
+    );
+
+    /**
      * Busca un cliente por estado
      * @param activo true o false
      * @param pageable de clientes

@@ -2,6 +2,8 @@ package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.Cita;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +14,36 @@ import java.util.List;
 
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Integer> {
+    /**
+     * Busca las citas de un clinete en especifico ordenado primero las mas recientes
+     * @param clienteId identificador del cliente
+     * @param pageable paginacion
+     * @return pagina de citas
+     */
+    Page<Cita> findByClienteIdClienteOrderByFechaHoraInicioDesc(Integer clienteId, Pageable pageable);
+
+    /**
+     * Busca las citas de un clinete en especifico filtrando por estado
+     * @param clienteId identificador del cliente
+     * @param estado estado de la cita
+     * @param pageable paginacion
+     * @return pagina de citas
+     */
+    Page<Cita> findByClienteIdClienteAndEstadoOrderByFechaHoraInicioDesc(Integer clienteId, EstadoCita estado, Pageable pageable);
+
+    @Query("SELECT c FROM Cita c WHERE " +
+            "c.cliente.idCliente = :idCliente AND " +
+            "(:estado IS NULL OR c.estado = :estado) AND " +
+            "(:fechaInicio IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
+            "(:fechaFin IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    Page<Cita> findByClienteAndFiltros(
+            @Param("idCliente") Integer idCliente,
+            @Param("estado") EstadoCita estado,
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin,
+            Pageable pageable
+    );
+
     /**
      * Busca las citas de un clinete en especifico ordenado primero las mas recientes
      * @param clienteId identificador del cliente

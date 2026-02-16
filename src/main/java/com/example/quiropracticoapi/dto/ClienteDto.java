@@ -18,4 +18,11 @@ public class ClienteDto {
     private String email;
     private String direccion;
     private String notasPrivadas;
+    private boolean activo;
+    
+    // Campos extendidos para lista de clientes
+    private Integer citasPendientes;
+    private Integer bonosActivos;
+    private Boolean tieneFamiliares;
+    private LocalDateTime ultimaCita;
 }

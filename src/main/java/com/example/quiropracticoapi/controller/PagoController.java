@@ -89,4 +89,15 @@ public class PagoController {
         pagoService.confirmarPago(id);
         return ResponseEntity.ok().build();
     }
+
+    /**
+     * Pone pendiente un pago
+     * @param id identificador del pago
+     * @return respuesta de la operacion
+     */
+    @PutMapping("/{id}/pendiente")
+    public ResponseEntity<Void> pendientePago(@PathVariable Integer id) {
+        pagoService.pendientePago(id);
+        return ResponseEntity.ok().build();
+    }
 }

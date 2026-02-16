@@ -15,4 +15,6 @@ public class BonoSeleccionDto {
     private int sesionesRestantes;
     private String propietarioNombre;
     private boolean esPropio;
+    private boolean esPagado;
+    private java.time.LocalDate fechaCompra;
 }

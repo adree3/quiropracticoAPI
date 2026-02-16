@@ -13,6 +13,8 @@ import com.example.quiropracticoapi.service.CitaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -216,9 +218,21 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
-    public List<CitaDto> getCitasPorCliente(Integer idCliente) {
-        return citaRepository.findByClienteIdClienteOrderByFechaHoraInicioDesc(idCliente)
-                .stream().map(citaMapper::toDto).collect(Collectors.toList());
+    public Page<CitaDto> getCitasPorCliente(Integer idCliente, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
+        LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
+        LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
+
+        Page<Cita> page = citaRepository.findByClienteAndFiltros(idCliente, estado, inicio, fin, pageable);
+
+        return page.map(c -> {
+            CitaDto dto = citaMapper.toDto(c);
+            try {
+                llenarInfoPago(c, dto);
+            } catch (Exception e) {
+                // log error pero no romper
+            }
+            return dto;
+        });
     }
 
     @Override
@@ -234,6 +248,28 @@ public class CitaServiceImpl implements CitaService {
                 idCita.toString(),
                 "Cita cancelada. Estado anterior: " + estadoAnterior + ". Cliente: " + cita.getCliente().getNombre()
         );
+
+        // Devolver sesión de bono si aplica
+        var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
+        if (consumoOpt.isPresent()) {
+            Integer idBono = consumoOpt.get().getBonoActivo().getIdBonoActivo();
+            // Inyectamos BonoService? No es buena práctica inyectar Service en Service (circular).
+            // Usamos Repositories o lógica local. Pero para consistencia... 
+            // CitaService ya tiene BonoActivoRepository y ConsumoBonoRepository.
+            // Mejor: Move refund logic here or use lazy injection of service.
+            // Simplest: Duplicate simple refund logic here OR move refund logic to a Helper/Manager.
+            // Given dependency cycle risk, we'll verify if BonoService is injected. It's not.
+            // Let's implement logic directly here using repositories to avoid cycle, 
+            // OR key point: CitaService depends on BonoService? Usually OK if BonoService doesn't depend on CitaService.
+            // BonoService does NOT seem to depend on CitaService.
+            // But here "gestionarConsumoBono" is already doing logic.
+            // Let's implement refund logic right here.
+            
+            BonoActivo bono = consumoOpt.get().getBonoActivo();
+            bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
+            bonoActivoRepository.save(bono);
+            consumoBonoRepository.delete(consumoOpt.get());
+        }
     }
 
     @Override

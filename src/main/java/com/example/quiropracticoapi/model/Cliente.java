@@ -45,8 +45,8 @@ public class Cliente {
     @Column(name = "notas_privadas", columnDefinition = "TEXT")
     private String notasPrivadas;
 
-    @Column(name = "activo")
-    private Boolean activo = true;
+    @Column(name = "activo", nullable = false)
+    private boolean activo = true;
 
     @PrePersist
     protected void onCreate() {

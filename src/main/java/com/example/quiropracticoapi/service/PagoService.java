@@ -17,4 +17,6 @@ public interface PagoService {
     BalanceDto getBalance(LocalDateTime inicio, LocalDateTime fin);
 
     void confirmarPago(Integer idPago);
+
+    void pendientePago(Integer idPago);
 }

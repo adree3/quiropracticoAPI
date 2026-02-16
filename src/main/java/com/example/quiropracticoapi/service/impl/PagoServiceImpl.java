@@ -154,6 +154,25 @@ public class PagoServiceImpl implements PagoService {
         }
     }
 
+    @Override
+    public void pendientePago(Integer idPago) {
+        Pago pago = pagoRepository.findById(idPago)
+                .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
+
+        if (pago.isPagado()) {
+            pago.setPagado(false);
+            pago.setFechaPago(null);
+            pagoRepository.save(pago);
+
+            auditoriaServiceImpl.registrarAccion(
+                    TipoAccion.DESHACER,
+                    "PAGO",
+                    idPago.toString(),
+                    "[UNDO] Cobro confirmado por error: " + pago.getMonto() + "€ - " + pago.getCliente().getNombre()
+            );
+        }
+    }
+
     private PagoDto toDto(Pago p) {
         PagoDto dto = new PagoDto();
         dto.setIdPago(p.getIdPago());

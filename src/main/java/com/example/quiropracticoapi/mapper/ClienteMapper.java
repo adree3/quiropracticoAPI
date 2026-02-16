@@ -24,6 +24,7 @@ public class ClienteMapper {
         dto.setEmail(cliente.getEmail());
         dto.setDireccion(cliente.getDireccion());
         dto.setNotasPrivadas(cliente.getNotasPrivadas());
+        dto.setActivo(cliente.isActivo());
         return dto;
     }
     /**

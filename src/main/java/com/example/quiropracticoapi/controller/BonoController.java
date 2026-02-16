@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.BonoDto;
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
+import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,6 +44,7 @@ public class BonoController {
                     dto.setSesionesTotales(b.getSesionesTotales());
                     dto.setSesionesRestantes(b.getSesionesRestantes());
                     dto.setFechaCaducidad(b.getFechaCaducidad());
+                    dto.setFechaCompra(b.getFechaCompra());
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -58,6 +60,16 @@ public class BonoController {
     @GetMapping("/disponibles/{idCliente}")
     public ResponseEntity<List<BonoSeleccionDto>> getBonosUsables(@PathVariable Integer idCliente) {
         return ResponseEntity.ok(bonoService.getBonosUsables(idCliente));
+    }
+
+    /**
+     * Obtiene el historial de consumos de un bono específico
+     * @param idBono identificador del bono activo
+     * @return lista de consumos (citas donde se usó)
+     */
+    @GetMapping("/{idBono}/consumos")
+    public ResponseEntity<List<ConsumoBonoDto>> getHistorialConsumos(@PathVariable Integer idBono) {
+        return ResponseEntity.ok(bonoService.getHistorialBono(idBono));
     }
 
 }
