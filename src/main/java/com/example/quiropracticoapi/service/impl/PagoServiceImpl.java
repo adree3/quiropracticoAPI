@@ -176,6 +176,7 @@ public class PagoServiceImpl implements PagoService {
     private PagoDto toDto(Pago p) {
         PagoDto dto = new PagoDto();
         dto.setIdPago(p.getIdPago());
+        dto.setIdCliente(p.getCliente().getIdCliente());
         dto.setNombreCliente(p.getCliente().getNombre() + " " + p.getCliente().getApellidos());
         dto.setConcepto(p.getServicioPagado() != null ? p.getServicioPagado().getNombreServicio() : "Cobro");
         dto.setMonto(p.getMonto());
