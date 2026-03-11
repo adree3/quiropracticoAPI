@@ -20,4 +20,5 @@ public class CitaDto {
     private EstadoCita estado;
     private String notasRecepcion;
     private String infoPago;
+    private Integer idBonoCliente;
 }

@@ -236,6 +236,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional
     public void cancelarCita(Integer idCita) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
@@ -252,23 +253,11 @@ public class CitaServiceImpl implements CitaService {
         // Devolver sesión de bono si aplica
         var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
         if (consumoOpt.isPresent()) {
-            Integer idBono = consumoOpt.get().getBonoActivo().getIdBonoActivo();
-            // Inyectamos BonoService? No es buena práctica inyectar Service en Service (circular).
-            // Usamos Repositories o lógica local. Pero para consistencia... 
-            // CitaService ya tiene BonoActivoRepository y ConsumoBonoRepository.
-            // Mejor: Move refund logic here or use lazy injection of service.
-            // Simplest: Duplicate simple refund logic here OR move refund logic to a Helper/Manager.
-            // Given dependency cycle risk, we'll verify if BonoService is injected. It's not.
-            // Let's implement logic directly here using repositories to avoid cycle, 
-            // OR key point: CitaService depends on BonoService? Usually OK if BonoService doesn't depend on CitaService.
-            // BonoService does NOT seem to depend on CitaService.
-            // But here "gestionarConsumoBono" is already doing logic.
-            // Let's implement refund logic right here.
-            
             BonoActivo bono = consumoOpt.get().getBonoActivo();
             bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
             bonoActivoRepository.save(bono);
-            consumoBonoRepository.delete(consumoOpt.get());
+            // Usamos query JPQL directa para evitar conflicto con CascadeType.ALL en Cita -> ConsumoBono
+            consumoBonoRepository.deleteByCitaIdCita(idCita);
         }
     }
 
@@ -311,6 +300,7 @@ public class CitaServiceImpl implements CitaService {
 
         validarDisponibilidad(quiro, request, idCita);
 
+        EstadoCita estadoAnterior = cita.getEstado(); // Capturar antes de modificar
         String cambios = "";
         if (!cita.getQuiropractico().getIdUsuario().equals(quiro.getIdUsuario())) cambios += "Quiropráctico cambiado. ";
         if (!cita.getFechaHoraInicio().isEqual(request.getFechaHoraInicio())) cambios += "Fecha reprogramada. ";
@@ -330,6 +320,18 @@ public class CitaServiceImpl implements CitaService {
         }
 
         Cita actualizada = citaRepository.save(cita);
+
+        // Si la cita pasa a 'cancelada' desde otro estado, devolver sesión del bono si aplica
+        if (actualizada.getEstado() == EstadoCita.cancelada && estadoAnterior != EstadoCita.cancelada) {
+            var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
+            if (consumoOpt.isPresent()) {
+                BonoActivo bono = consumoOpt.get().getBonoActivo();
+                bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
+                bonoActivoRepository.save(bono);
+                consumoBonoRepository.deleteByCitaIdCita(idCita); // JPQL directo, evita conflicto CascadeType.ALL
+            }
+        }
+
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CITA",
@@ -404,6 +406,38 @@ public class CitaServiceImpl implements CitaService {
         return true;
     }
 
+    @Override
+    public Page<CitaDto> getAllCitas(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
+        LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
+        LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
+
+        Page<Cita> page = citaRepository.findAllWithFilters(search, estado, inicio, fin, pageable);
+
+        return page.map(c -> {
+            CitaDto dto = citaMapper.toDto(c);
+            try {
+                llenarInfoPago(c, dto);
+            } catch (Exception e) {
+                // log error pero no romper
+            }
+            return dto;
+        });
+    }
+
+    @Override
+    public com.example.quiropracticoapi.dto.CitasKpiDto getCitasKpis(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin) {
+        LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
+        LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
+
+        long total = citaRepository.countAllCitasInFilters(search, estado, inicio, fin);
+        long programadas = citaRepository.countCitasByEstadoInFilters(search, estado, EstadoCita.programada, inicio, fin);
+        long completadas = citaRepository.countCitasByEstadoInFilters(search, estado, EstadoCita.completada, inicio, fin);
+        long canceladas = citaRepository.countCitasByEstadoInFilters(search, estado, EstadoCita.cancelada, inicio, fin);
+        long ausentes = citaRepository.countCitasByEstadoInFilters(search, estado, EstadoCita.ausente, inicio, fin);
+
+        return new com.example.quiropracticoapi.dto.CitasKpiDto(total, programadas, completadas, canceladas, ausentes);
+    }
+
     private void llenarInfoPago(Cita cita, CitaDto dto) {
         var consumoOpt = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
 
@@ -419,8 +453,12 @@ public class CitaServiceImpl implements CitaService {
 
             if (bono.getCliente().getIdCliente().equals(cita.getCliente().getIdCliente())) {
                 dto.setInfoPago("Bono Propio (" + nombreBono  + infoSaldo+")");
+                // Es el propietario del bono
+                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
             } else {
                 dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
+                // Es pagado por un familiar
+                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
             }
         } else {
             dto.setInfoPago("Pago Directo / Sesión Suelta");

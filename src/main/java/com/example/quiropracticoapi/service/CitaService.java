@@ -27,5 +27,9 @@ public interface CitaService {
 
     List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir);
 
+    Page<CitaDto> getAllCitas(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable);
+
+    com.example.quiropracticoapi.dto.CitasKpiDto getCitasKpis(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin);
+
 
 }

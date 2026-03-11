@@ -141,4 +141,55 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
     List<Cita> findCitasFuturasConBonoPrestado(
             @Param("pacienteId") Integer pacienteId,
             @Param("propietarioId") Integer propietarioId);
+
+    /**
+     * Busca todas las citas filtrando por nombre/apellidos de usuario, teléfono, estado y rango de fechas.
+     */
+    @Query("SELECT c FROM Cita c WHERE " +
+            "(:search IS NULL OR " +
+            "LOWER(CONCAT(c.cliente.nombre, ' ', c.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "c.cliente.telefono LIKE CONCAT('%', :search, '%') OR " +
+            "CAST(c.idCita AS string) LIKE CONCAT('%', :search, '%')) AND " +
+            "(:estado IS NULL OR c.estado = :estado) AND " +
+            "(CAST(:fechaInicio AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
+            "(CAST(:fechaFin AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    Page<Cita> findAllWithFilters(
+            @Param("search") String search,
+            @Param("estado") EstadoCita estado,
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin,
+            Pageable pageable
+    );
+
+    @Query("SELECT COUNT(c) FROM Cita c WHERE " +
+            "(:search IS NULL OR " +
+            "LOWER(CONCAT(c.cliente.nombre, ' ', c.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "c.cliente.telefono LIKE CONCAT('%', :search, '%') OR " +
+            "CAST(c.idCita AS string) LIKE CONCAT('%', :search, '%')) AND " +
+            "(:estado IS NULL OR c.estado = :estado) AND " +
+            "(CAST(:fechaInicio AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
+            "(CAST(:fechaFin AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    long countAllCitasInFilters(
+            @Param("search") String search,
+            @Param("estado") EstadoCita estado,
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin
+    );
+
+    @Query("SELECT COUNT(c) FROM Cita c WHERE " +
+            "(:search IS NULL OR " +
+            "LOWER(CONCAT(c.cliente.nombre, ' ', c.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "c.cliente.telefono LIKE CONCAT('%', :search, '%') OR " +
+            "CAST(c.idCita AS string) LIKE CONCAT('%', :search, '%')) AND " +
+            "(:estado IS NULL OR c.estado = :estado) AND " +
+            "c.estado = :kpiEstado AND " +
+            "(CAST(:fechaInicio AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
+            "(CAST(:fechaFin AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    long countCitasByEstadoInFilters(
+            @Param("search") String search,
+            @Param("estado") EstadoCita estado,
+            @Param("kpiEstado") EstadoCita kpiEstado,
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin
+    );
 }

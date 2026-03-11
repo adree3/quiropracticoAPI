@@ -49,6 +49,29 @@ public class CitaController {
         return ResponseEntity.ok(citas);
     }
 
+    @Operation(summary = "Obtener todas las citas con filtros", description = "Devuelve todas las citas de la clínica con paginación y filtros opcionales de búsqueda, estado y rango de fechas.")
+    @GetMapping
+    public ResponseEntity<Page<CitaDto>> getAllCitas(
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "estado", required = false) EstadoCita estado,
+            @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+            @PageableDefault(size = 15, sort = "fechaHoraInicio") Pageable pageable) {
+        Page<CitaDto> citas = citaService.getAllCitas(search, estado, fechaInicio, fechaFin, pageable);
+        return ResponseEntity.ok(citas);
+    }
+
+    @Operation(summary = "Obtener KPIs de citas", description = "Devuelve contadores de citas por estado, búsqueda y fecha.")
+    @GetMapping("/kpis")
+    public ResponseEntity<com.example.quiropracticoapi.dto.CitasKpiDto> getCitasKpis(
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "estado", required = false) EstadoCita estado,
+            @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
+        com.example.quiropracticoapi.dto.CitasKpiDto kpis = citaService.getCitasKpis(search, estado, fechaInicio, fechaFin);
+        return ResponseEntity.ok(kpis);
+    }
+
     // Ver Agenda del día
     @Operation(summary = "Ver agenda de un día específico", description = "Devuelve todas las citas de la clínica para una fecha dada.")
     @GetMapping("/agenda")
