@@ -154,6 +154,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         dto.setRol(u.getRol());
         dto.setActivo(u.isActivo());
         dto.setCuentaBloqueada(u.isCuentaBloqueada());
+        dto.setUltimaConexion(u.getUltimaConexion());
         return dto;
     }
 }

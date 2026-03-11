@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.dto;
 import com.example.quiropracticoapi.model.enums.Rol;
 import lombok.Getter;
 import lombok.Setter;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -13,4 +14,5 @@ public class UsuarioDto {
     private Rol rol;
     private boolean activo;
     private boolean cuentaBloqueada;
+    private LocalDateTime ultimaConexion;
 }
