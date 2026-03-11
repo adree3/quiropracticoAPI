@@ -70,7 +70,7 @@ public class ClienteServiceImpl implements ClienteService {
     public ClienteDto getClienteById(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontro el cliente con id: " + id));
-        return clienteMapper.toClienteDto(cliente);
+        return enrichClienteDto(cliente);
     }
 
     @Override
@@ -179,14 +179,13 @@ public class ClienteServiceImpl implements ClienteService {
     private ClienteDto enrichClienteDto(Cliente cliente) {
         ClienteDto dto = clienteMapper.toClienteDto(cliente);
         
-        // Calcular citas pendientes (futuras y no canceladas/ausentes)
-        LocalDateTime now = LocalDateTime.now();
+        // Calcular citas programadas (estado = programada, tanto pasadas como futuras)
         List<Cita> todasCitas = citaRepository.findByClienteIdClienteOrderByFechaHoraInicioDesc(cliente.getIdCliente());
         
         long citasPendientes = todasCitas.stream()
-            .filter(c -> c.getFechaHoraInicio().isAfter(now))
-            .filter(c -> c.getEstado() != EstadoCita.cancelada && c.getEstado() != EstadoCita.ausente)
+            .filter(c -> c.getEstado() == EstadoCita.programada) // Todas las programadas, independientemente de la fecha
             .count();
+        
         dto.setCitasPendientes((int) citasPendientes);
         
         // Calcular bonos activos (con sesiones restantes > 0)
