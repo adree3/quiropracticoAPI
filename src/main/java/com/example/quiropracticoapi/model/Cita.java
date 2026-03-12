@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -16,7 +17,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "citas")
-public class Cita implements SoftDeletable {
+public class Cita implements SoftDeletable, Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,5 +54,11 @@ public class Cita implements SoftDeletable {
     @Override
     public boolean isEliminadoLogico() {
         return EstadoCita.cancelada == this.estado;
+    }
+
+    @Override
+    public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
+        return String.format("Cita #%s | Estado: %s | Inicio: %s",
+                idCita, estado, fechaHoraInicio);
     }
 }
