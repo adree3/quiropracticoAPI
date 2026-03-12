@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.repository;
 
+import com.example.quiropracticoapi.dto.ChartDataProjection;
 import com.example.quiropracticoapi.model.Pago;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -89,4 +90,15 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      */
     @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.pagado = false")
     Double sumTotalPendienteGlobal();
+
+    /**
+     * Agrupación de ingresos por día para la gráfica semanal.
+     * Evita hacer 7 consultas individuales (N+1).
+     */
+    @Query(value = "SELECT DATE_FORMAT(fecha_pago, '%Y-%m-%d') as label, SUM(monto) as value " +
+           "FROM pagos " +
+           "WHERE pagado = true AND fecha_pago BETWEEN :inicio AND :fin " +
+           "GROUP BY DATE(fecha_pago) " +
+           "ORDER BY label ASC", nativeQuery = true)
+    List<ChartDataProjection> sumTotalCobradoPorDia(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 }
