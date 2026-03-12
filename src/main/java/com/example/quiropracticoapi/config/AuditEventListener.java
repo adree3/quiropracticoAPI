@@ -67,15 +67,51 @@ public class AuditEventListener implements PostInsertEventListener, PostUpdateEv
         Object entity = event.getEntity();
         if (entity instanceof Auditoria) return;
 
-        // Detección de Soft Delete completamente genérica, sin cadenas hardcodeadas.
-        // Si la entidad implementa SoftDeletable, le preguntamos directamente si está eliminada.
-        // El estado anterior se refleja en el hecho de que el evento es un UPDATE.
         TipoAccion accion = TipoAccion.EDITAR;
-        if (entity instanceof SoftDeletable softDeletable && softDeletable.isEliminadoLogico()) {
-            accion = TipoAccion.ELIMINAR_LOGICO;
+
+        // Solo las entidades con borrado lógico necesitan la comparación de transición
+        if (entity instanceof SoftDeletable) {
+            // Comparamos el estado ANTERIOR vs el NUEVO usando los arrays de Hibernate.
+            // Esto evita el edge case de registrar ELIMINAR_LOGICO si la entidad ya estaba
+            // eliminada y solo se editó otro campo.
+            String[] propertyNames = event.getPersister().getPropertyNames();
+            Object[] oldState = event.getOldState();
+            Object[] newState = event.getState();
+
+            boolean eraEliminado = isEliminadoEnEstado(entity, propertyNames, oldState);
+            boolean esEliminado  = isEliminadoEnEstado(entity, propertyNames, newState);
+
+            if (!eraEliminado && esEliminado) {
+                accion = TipoAccion.ELIMINAR_LOGICO;
+            } else if (eraEliminado && !esEliminado) {
+                accion = TipoAccion.REACTIVAR;
+            }
+            // Si ambos son iguales → EDITAR (valor por defecto)
         }
 
         logAction(entity, accion);
+    }
+
+    /**
+     * Determina si la entidad estaba en estado "eliminado lógicamente" según un snapshot del estado de Hibernate.
+     * Delega en la implementación concreta de SoftDeletable a través de reflection temporal sobre el estado dado.
+     * Para evitar tener que instanciar una entidad nueva, comparamos los valores de los campos clave directamente.
+     */
+    private boolean isEliminadoEnEstado(Object entity, String[] propertyNames, Object[] estado) {
+        if (estado == null) return false;
+        // Estrategia: buscamos los campos que SoftDeletable usa para determinar el borrado lógico.
+        // Cubrimos los dos patrones de nuestro dominio:
+        //  1. Campo 'activo' (boolean) → eliminado cuando activo = false
+        //  2. Campo 'estado' con valor 'cancelada' (enum EstadoCita)
+        for (int i = 0; i < propertyNames.length; i++) {
+            if ("activo".equals(propertyNames[i])) {
+                return Boolean.FALSE.equals(estado[i]);
+            }
+            if ("estado".equals(propertyNames[i]) && estado[i] != null) {
+                return "cancelada".equalsIgnoreCase(estado[i].toString());
+            }
+        }
+        return false;
     }
 
     @Override

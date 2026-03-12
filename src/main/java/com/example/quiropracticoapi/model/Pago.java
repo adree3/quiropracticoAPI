@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.quiropracticoapi.model.enums.MetodoPago;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ public class Pago {
     @Column(name = "id_pago")
     private Integer idPago;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;
@@ -36,6 +38,7 @@ public class Pago {
     @Column(name = "fecha_pago", nullable = false, updatable = false)
     private LocalDateTime fechaPago;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_servicio_pagado", nullable = true)
     private Servicio servicioPagado;
