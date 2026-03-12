@@ -41,7 +41,11 @@ public class Auditoria {
     @Column(name = "id_entidad")
     private String idEntidad;
 
-    // Detalles extra
+    // Resumen legible para el usuario (generado por Auditable.toResumen())
+    @Column(name = "resumen", length = 500)
+    private String resumen;
+
+    // Detalles técnicos en JSON (para administradores o soporte técnico)
     @Column(columnDefinition = "TEXT")
     private String detalles;
 }

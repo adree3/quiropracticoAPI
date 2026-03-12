@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.example.quiropracticoapi.model.Auditable;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "clientes")
-public class Cliente implements SoftDeletable {
+public class Cliente implements SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
@@ -51,6 +52,12 @@ public class Cliente implements SoftDeletable {
     @Override
     public boolean isEliminadoLogico() {
         return !this.activo;
+    }
+
+    @Override
+    public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
+        return String.format("Cliente #%s | %s %s | Activo: %s",
+                idCliente, nombre, apellidos, activo ? "Sí" : "No");
     }
 
     @PrePersist

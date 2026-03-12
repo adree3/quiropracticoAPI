@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.TipoServicio;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,7 +16,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Entity
 @Table(name = "servicios")
-public class Servicio implements SoftDeletable {
+public class Servicio implements SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_servicio")
@@ -40,5 +41,11 @@ public class Servicio implements SoftDeletable {
     @Override
     public boolean isEliminadoLogico() {
         return !this.activo;
+    }
+
+    @Override
+    public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
+        return String.format("Servicio #%s | %s | %s€ | Activo: %s",
+                idServicio, nombreServicio, precio, activo ? "Sí" : "No");
     }
 }

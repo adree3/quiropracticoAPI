@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.config;
 
+import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.Auditoria;
 import com.example.quiropracticoapi.model.SoftDeletable;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
@@ -123,11 +124,17 @@ public class AuditEventListener implements PostInsertEventListener, PostUpdateEv
         if (entity instanceof Auditoria) return;
 
         Class<?> clazz = entity.getClass();
-        // Quitar "$HibernateProxy$" u otros sufijos que mete CGLIB si se llama el método en lazies
+        // Quitar "$HibernateProxy$" u otros sufijos de CGLIB
         String entidadNombre = clazz.getSimpleName().split("\\$")[0];
-        String isIdStr = obtenerId(entity);
-        
-        // Convertimos a JSON previniendo infinite recursion por relaciones bidireccionales
+        String idStr = obtenerId(entity);
+
+        // Resumen legible: delegamos en la entidad si implementa Auditable
+        String resumen = null;
+        if (entity instanceof Auditable auditable) {
+            resumen = auditable.toResumen(tipoAccion);
+        }
+
+        // JSON técnico completo (accesible vía botón "Resumen" en el frontend)
         String detalles = "{}";
         try {
             detalles = mapper.writeValueAsString(entity);
@@ -135,7 +142,7 @@ public class AuditEventListener implements PostInsertEventListener, PostUpdateEv
             detalles = "{\"error\": \"No se pudo serializar la entidad\"}";
         }
 
-        auditoriaService.registrarAccion(tipoAccion, entidadNombre, isIdStr, detalles);
+        auditoriaService.registrarAccion(tipoAccion, entidadNombre, idStr, detalles, null, resumen);
     }
 
     private String obtenerId(Object entity) {

@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.Rol;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -21,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails, SoftDeletable {
+public class Usuario implements UserDetails, SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")
@@ -92,5 +93,11 @@ public class Usuario implements UserDetails, SoftDeletable {
     @Override
     public boolean isEliminadoLogico() {
         return !this.activo;
+    }
+
+    @Override
+    public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
+        return String.format("Usuario #%s | %s (%s) | Activo: %s",
+                idUsuario, username, rol, activo ? "Sí" : "No");
     }
 }

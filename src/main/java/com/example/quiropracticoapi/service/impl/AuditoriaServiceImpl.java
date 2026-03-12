@@ -74,19 +74,20 @@ public class AuditoriaServiceImpl {
      */
     @Async
     public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles) {
-        registrarAccion(accion, entidad, idEntidad, detalles, null);
+        registrarAccion(accion, entidad, idEntidad, detalles, null, null);
+    }
+
+    @Async
+    public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado) {
+        registrarAccion(accion, entidad, idEntidad, detalles, usernameForzado, null);
     }
 
     /**
-     * Lo mismo que el anterior solo que implementa un campo para los login de usuarios
-     * @param accion (eliminar, crear...)
-     * @param entidad (cita, persona...)
-     * @param idEntidad identificador de la entidad
-     * @param detalles detalles extra
-     * @param usernameForzado el usuario a loggearse
+     * Registra la acción con resumen legible para el usuario y detalles técnicos en JSON.
+     * @param resumen texto corto legible (columna Detalle en la tabla del frontend)
      */
     @Async
-    public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado) {
+    public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado, String resumen) {
         try {
             String username;
 
@@ -110,6 +111,7 @@ public class AuditoriaServiceImpl {
                     .accion(accion)
                     .entidad(entidad)
                     .idEntidad(idEntidad)
+                    .resumen(resumen)
                     .detalles(detalles)
                     .build();
 

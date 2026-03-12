@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.example.quiropracticoapi.model.Auditable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,7 +16,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Entity
 @Table(name = "bonos_activos")
-public class BonoActivo {
+public class BonoActivo implements Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,4 +49,11 @@ public class BonoActivo {
 
     @Column(name = "fecha_caducidad")
     private LocalDate fechaCaducidad;
+
+    @Override
+    public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
+        return String.format("Bono #%s | Sesiones: %s/%s | Caduca: %s",
+                idBonoActivo, sesionesRestantes, sesionesTotales,
+                fechaCaducidad != null ? fechaCaducidad : "Sin caducidad");
+    }
 }
