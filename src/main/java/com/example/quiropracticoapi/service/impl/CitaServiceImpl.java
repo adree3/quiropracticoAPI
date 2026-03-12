@@ -438,6 +438,25 @@ public class CitaServiceImpl implements CitaService {
         return new com.example.quiropracticoapi.dto.CitasKpiDto(total, programadas, completadas, canceladas, ausentes);
     }
 
+    @Override
+    public List<CitaDto> getCitasPorRango(LocalDate desde, LocalDate hasta, Integer idQuiropractico) {
+        LocalDateTime inicio = desde.atStartOfDay();
+        LocalDateTime fin = hasta.atTime(23, 59, 59);
+
+        List<Cita> citas;
+        if (idQuiropractico != null) {
+            citas = citaRepository.findByQuiropracticoIdUsuarioAndFechaHoraInicioBetween(idQuiropractico, inicio, fin);
+        } else {
+            citas = citaRepository.findByFechaHoraInicioBetween(inicio, fin);
+        }
+
+        return citas.stream().map(c -> {
+            CitaDto dto = citaMapper.toDto(c);
+            llenarInfoPago(c, dto);
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
     private void llenarInfoPago(Cita cita, CitaDto dto) {
         var consumoOpt = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
 

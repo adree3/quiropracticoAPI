@@ -31,5 +31,5 @@ public interface CitaService {
 
     com.example.quiropracticoapi.dto.CitasKpiDto getCitasKpis(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin);
 
-
+    List<CitaDto> getCitasPorRango(LocalDate desde, LocalDate hasta, Integer idQuiropractico);
 }

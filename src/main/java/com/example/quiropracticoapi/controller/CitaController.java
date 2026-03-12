@@ -72,12 +72,21 @@ public class CitaController {
         return ResponseEntity.ok(kpis);
     }
 
-    // Ver Agenda del día
     @Operation(summary = "Ver agenda de un día específico", description = "Devuelve todas las citas de la clínica para una fecha dada.")
     @GetMapping("/agenda")
     public ResponseEntity<List<CitaDto>> getAgendaDiaria(
             @RequestParam("fecha") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
         List<CitaDto> citas = citaService.getCitasPorFecha(fecha);
+        return ResponseEntity.ok(citas);
+    }
+
+    @Operation(summary = "Ver agenda por rango de fechas", description = "Devuelve todas las citas entre dos fechas, con filtro opcional por quiropráctico. Útil para vistas semanales/mensuales.")
+    @GetMapping("/rango")
+    public ResponseEntity<List<CitaDto>> getAgendaPorRango(
+            @RequestParam("desde") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam("hasta") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(value = "idQuiropractico", required = false) Integer idQuiropractico) {
+        List<CitaDto> citas = citaService.getCitasPorRango(desde, hasta, idQuiropractico);
         return ResponseEntity.ok(citas);
     }
 
