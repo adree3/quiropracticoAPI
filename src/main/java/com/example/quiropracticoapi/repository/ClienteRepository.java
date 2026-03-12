@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.repository;
 
+import com.example.quiropracticoapi.dto.ClienteDetalleProjection;
 import com.example.quiropracticoapi.model.Cliente;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -102,6 +103,29 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * @return numero de clientes nuevos
      */
     long countByFechaAltaBetween(LocalDateTime inicio, LocalDateTime fin);
+
+    /**
+     * Versión optimizada que trae datos agregados (conteo de citas, bonos, etc.) 
+     * en una sola consulta para evitar problemas de rendimiento N+1.
+     */
+    @Query(value = "SELECT c.id_cliente as idCliente, c.nombre as nombre, c.apellidos as apellidos, " +
+           "c.email as email, c.telefono as telefono, c.activo as activo, c.fecha_alta as fecha_alta, " +
+           "(SELECT COUNT(*) FROM citas ct WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'programada') as countCitasPendientes, " +
+           "(SELECT COUNT(*) FROM bonos_activos b WHERE b.id_cliente = c.id_cliente AND b.sesiones_restantes > 0) as countBonosActivos, " +
+           "CAST(EXISTS(SELECT 1 FROM grupos_familiares g WHERE g.id_cliente_propietario = c.id_cliente) AS SIGNED) as tieneFamiliares, " +
+           "(SELECT MAX(ct2.fecha_hora_inicio) FROM citas ct2 WHERE ct2.id_cliente = c.id_cliente AND ct2.estado = 'completada') as ultimaCita " +
+           "FROM clientes c " +
+           "WHERE (:activo IS NULL OR c.activo = :activo) " +
+           "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%)",
+           countQuery = "SELECT COUNT(*) FROM clientes c " +
+                        "WHERE (:activo IS NULL OR c.activo = :activo) " +
+                        "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%)",
+           nativeQuery = true)
+    Page<ClienteDetalleProjection> findClientesOptimized(
+        @Param("activo") Boolean activo,
+        @Param("texto") String texto,
+        Pageable pageable
+    );
 
     /**
      * Cuenta los clientes activos

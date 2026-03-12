@@ -62,7 +62,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/media/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/stats/**").hasAnyAuthority("ROLE_admin", "ROLE_quiropráctico")
                         .requestMatchers("/api/auth/**").hasAnyAuthority("ROLE_admin", "ROLE_quiropráctico")

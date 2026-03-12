@@ -7,6 +7,7 @@ import com.twilio.type.PhoneNumber;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,6 +30,7 @@ public class WhatsAppService {
         Twilio.init(accountSid, authToken);
     }
 
+    @Async
     public void enviarMensajeCita(String telefonoDestino, String nombrePaciente, String fechaHora, String sesionesRestantes, String nombreServicio) {
         try {
             String numeroFormateado = "whatsapp:" + (telefonoDestino.startsWith("+") ? telefonoDestino : "+34" + telefonoDestino);

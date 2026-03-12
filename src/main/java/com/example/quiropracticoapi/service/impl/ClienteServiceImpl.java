@@ -157,20 +157,39 @@ public class ClienteServiceImpl implements ClienteService {
         Integer lastActivityDays,
         Pageable pageable
     ) {
-        LocalDateTime ultimaCitaDesde = null;
+        // Para filtros temporales complejos (lastActivityDays) seguimos usando el filtrado por entidad
+        // Pero para la búsqueda general (que es el 90% del uso), usamos la versión optimizada.
         if (lastActivityDays != null) {
-            ultimaCitaDesde = LocalDateTime.now().minusDays(lastActivityDays);
+            LocalDateTime ultimaCitaDesde = LocalDateTime.now().minusDays(lastActivityDays);
+            Page<Cliente> clientesPage = clienteRepository.findClientesFiltered(
+                activo, texto, ultimaCitaDesde, pageable
+            );
+            return clientesPage.map(this::enrichClienteDto);
         }
-        
-        Page<Cliente> clientesPage = clienteRepository.findClientesFiltered(
-            activo,
-            texto,
-            ultimaCitaDesde,
-            pageable
+
+        // Búsqueda normal optimizada (Sin N+1)
+        Page<ClienteDetalleProjection> projectionPage = clienteRepository.findClientesOptimized(
+            activo, texto, pageable
         );
-        
-        // Enriquecer cada Cliente con información agregada usando repositorios
-        return clientesPage.map(this::enrichClienteDto);
+
+        return projectionPage.map(p -> {
+            ClienteDto dto = new ClienteDto();
+            dto.setIdCliente(p.getIdCliente());
+            dto.setNombre(p.getNombre());
+            dto.setApellidos(p.getApellidos());
+            dto.setEmail(p.getEmail());
+            dto.setTelefono(p.getTelefono());
+            dto.setActivo(p.getActivo());
+            dto.setFechaAlta(p.getFechaAlta());
+            
+            // Datos agregados ya calculados en SQL
+            dto.setCitasPendientes(p.getCountCitasPendientes());
+            dto.setBonosActivos(p.getCountBonosActivos());
+            dto.setTieneFamiliares(p.getTieneFamiliares());
+            dto.setUltimaCita(p.getUltimaCita());
+            
+            return dto;
+        });
     }
 
     /**
