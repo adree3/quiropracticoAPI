@@ -15,7 +15,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Entity
 @Table(name = "servicios")
-public class Servicio {
+public class Servicio implements SoftDeletable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_servicio")
@@ -36,4 +36,9 @@ public class Servicio {
 
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
+
+    @Override
+    public boolean isEliminadoLogico() {
+        return !this.activo;
+    }
 }

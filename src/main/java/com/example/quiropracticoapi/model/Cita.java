@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "citas")
-public class Cita {
+public class Cita implements SoftDeletable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,4 +45,9 @@ public class Cita {
 
     @OneToOne(mappedBy = "cita", cascade = CascadeType.ALL)
     private ConsumoBono consumoBono;
+
+    @Override
+    public boolean isEliminadoLogico() {
+        return EstadoCita.cancelada == this.estado;
+    }
 }

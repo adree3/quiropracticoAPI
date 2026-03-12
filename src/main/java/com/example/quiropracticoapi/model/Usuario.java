@@ -20,7 +20,7 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails {
+public class Usuario implements UserDetails, SoftDeletable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")
@@ -84,5 +84,10 @@ public class Usuario implements UserDetails {
     @Override
     public boolean isEnabled() {
         return this.activo;
+    }
+
+    @Override
+    public boolean isEliminadoLogico() {
+        return !this.activo;
     }
 }

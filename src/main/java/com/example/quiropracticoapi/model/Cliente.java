@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "clientes")
-public class Cliente {
+public class Cliente implements SoftDeletable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
@@ -47,6 +47,11 @@ public class Cliente {
 
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
+
+    @Override
+    public boolean isEliminadoLogico() {
+        return !this.activo;
+    }
 
     @PrePersist
     protected void onCreate() {
