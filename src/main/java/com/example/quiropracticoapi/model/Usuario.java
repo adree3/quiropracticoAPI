@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.model;
 
 import com.example.quiropracticoapi.model.enums.Rol;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -29,6 +30,7 @@ public class Usuario implements UserDetails, SoftDeletable {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private  String password;
 
@@ -51,6 +53,7 @@ public class Usuario implements UserDetails, SoftDeletable {
     @Column(name = "ultima_conexion")
     private LocalDateTime ultimaConexion;
 
+    @JsonIgnore
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_"+ rol.name()));

@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -22,10 +23,12 @@ public class Cita implements SoftDeletable {
     @Column(name = "id_cita")
     private Integer idCita;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_quiropractico", nullable = false)
     private Usuario quiropractico;
@@ -43,6 +46,7 @@ public class Cita implements SoftDeletable {
     @Column(name = "notas_recepcion", columnDefinition = "TEXT")
     private String notasRecepcion;
 
+    @JsonIgnore
     @OneToOne(mappedBy = "cita", cascade = CascadeType.ALL)
     private ConsumoBono consumoBono;
 

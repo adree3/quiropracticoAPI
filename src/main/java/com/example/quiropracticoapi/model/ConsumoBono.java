@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,10 +21,12 @@ public class ConsumoBono {
     @Column(name = "id_consumo")
     private Integer idConsumo;
 
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cita", nullable = false, unique = true)
     private Cita cita;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_bono_activo", nullable = false)
     private BonoActivo bonoActivo;

@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,14 +22,17 @@ public class BonoActivo {
     @Column(name = "id_bono_activo")
     private Integer idBonoActivo;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_servicio_comprado", nullable = false)
     private Servicio servicioComprado;
 
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_pago_origen", nullable = false, unique = true)
     private Pago pagoOrigen;
