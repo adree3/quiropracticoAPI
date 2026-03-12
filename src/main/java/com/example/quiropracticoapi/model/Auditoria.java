@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "auditoria")
+@Table(name = "auditoria", indexes = {
+    @Index(name = "idx_auditoria_fecha", columnList = "fechaHora")
+})
 public class Auditoria {
 
     @Id

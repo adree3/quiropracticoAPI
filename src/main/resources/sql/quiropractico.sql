@@ -20,6 +20,7 @@ CREATE TABLE `usuarios` (
   `activo` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0=Inactivo, 1=Activo',
   `intentos_fallidos` INT NOT NULL DEFAULT 0,
   `cuenta_bloqueada` TINYINT(1) NOT NULL DEFAULT 0,
+  `ultima_conexion` DATETIME NULL,
   PRIMARY KEY (`id_usuario`)
 ) ENGINE=InnoDB;
 
@@ -95,7 +96,8 @@ CREATE TABLE `citas` (
   PRIMARY KEY (`id_cita`),
   INDEX `idx_cita_cliente` (`id_cliente`),
   INDEX `idx_cita_quiropractico` (`id_quiropractico`),
-  INDEX `idx_cita_fechas` (`fecha_hora_inicio`, `fecha_hora_fin`),
+  INDEX `idx_cita_fechas_estado` (`fecha_hora_inicio`, `fecha_hora_fin`, `estado`),
+  INDEX `idx_cita_estado` (`estado`),
   CONSTRAINT `fk_cita_cliente`
     FOREIGN KEY (`id_cliente`)
     REFERENCES `clientes` (`id_cliente`)
@@ -193,7 +195,7 @@ CREATE TABLE `bonos_activos` (
   CONSTRAINT `fk_bono_cliente`
     FOREIGN KEY (`id_cliente`)
     REFERENCES `clientes` (`id_cliente`)
-    ON DELETE CASCADE
+    ON DELETE RESTRICT
     ON UPDATE CASCADE,
   CONSTRAINT `fk_bono_servicio`
     FOREIGN KEY (`id_servicio_comprado`)
@@ -242,12 +244,34 @@ CREATE TABLE `consumos_bono` (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- Tabla para logs de auditoría automática
+DROP TABLE IF EXISTS `auditoria`;
+CREATE TABLE `auditoria` (
+  `id_auditoria` BIGINT NOT NULL AUTO_INCREMENT,
+  `fecha_hora` DATETIME NOT NULL,
+  `id_usuario_responsable` INT NULL,
+  `username_responsable` VARCHAR(50) NULL,
+  `accion` VARCHAR(50) NOT NULL,
+  `entidad` VARCHAR(100) NOT NULL,
+  `id_entidad` VARCHAR(100) NULL,
+  `resumen` VARCHAR(500) NULL,
+  `detalles` TEXT NULL,
+  PRIMARY KEY (`id_auditoria`),
+  INDEX `idx_auditoria_fecha` (`fecha_hora` DESC),
+  INDEX `idx_auditoria_entidad` (`entidad`, `id_entidad`),
+  CONSTRAINT `fk_auditoria_usuario`
+    FOREIGN KEY (`id_usuario_responsable`)
+    REFERENCES `usuarios` (`id_usuario`)
+    ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- Reactivamos la comprobación de claves foráneas
 SET FOREIGN_KEY_CHECKS = 1;
 
 USE quiropractica_db;
 -- Limpiamos datos previos (en orden inverso para respetar FKs)
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE auditoria;
 TRUNCATE TABLE consumos_bono;
 TRUNCATE TABLE bonos_activos;
 TRUNCATE TABLE historial_clinico;
