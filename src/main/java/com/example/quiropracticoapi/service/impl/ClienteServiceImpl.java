@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.service.impl;
 
 
+import com.example.quiropracticoapi.dto.ClienteDetalleProjection;
 import com.example.quiropracticoapi.dto.ClienteDto;
 import com.example.quiropracticoapi.dto.ClienteRequestDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
@@ -185,7 +186,7 @@ public class ClienteServiceImpl implements ClienteService {
             // Datos agregados ya calculados en SQL
             dto.setCitasPendientes(p.getCountCitasPendientes());
             dto.setBonosActivos(p.getCountBonosActivos());
-            dto.setTieneFamiliares(p.getTieneFamiliares());
+            dto.setTieneFamiliares(p.getTieneFamiliares() != null && p.getTieneFamiliares() > 0);
             dto.setUltimaCita(p.getUltimaCita());
             
             return dto;

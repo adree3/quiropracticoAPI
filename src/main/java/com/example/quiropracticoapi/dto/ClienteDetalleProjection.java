@@ -14,6 +14,6 @@ public interface ClienteDetalleProjection {
     // Campos calculados para evitar N+1
     Integer getCountCitasPendientes();
     Integer getCountBonosActivos();
-    Boolean getTieneFamiliares();
+    Long getTieneFamiliares();
     LocalDateTime getUltimaCita();
 }
