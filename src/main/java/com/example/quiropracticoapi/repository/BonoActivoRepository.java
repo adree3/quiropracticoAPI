@@ -1,6 +1,8 @@
 package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.BonoActivo;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,5 +36,11 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
             "b.cliente.idCliente IN (SELECT g.propietario.idCliente FROM GrupoFamiliar g WHERE g.beneficiario.idCliente = :clienteId)" +
             ") ORDER BY b.fechaCompra ASC")
     List<BonoActivo> findBonosDisponiblesParaCliente(@Param("clienteId") Integer clienteId);
+
+    @Query("SELECT b FROM BonoActivo b WHERE " +
+            "(:search IS NULL OR " +
+            "LOWER(CONCAT(b.cliente.nombre, ' ', b.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(b.servicioComprado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))) ")
+    Page<BonoActivo> findAllWithFilters(@Param("search") String search, Pageable pageable);
 }
 

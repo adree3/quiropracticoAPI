@@ -1,17 +1,17 @@
 package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.BonoDto;
+import com.example.quiropracticoapi.dto.BonoHistoricoDto;
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -72,4 +72,15 @@ public class BonoController {
         return ResponseEntity.ok(bonoService.getHistorialBono(idBono));
     }
 
+    /**
+     * Obtiene todos los bonos vendidos en el sistema (Historial Global)
+     */
+    @GetMapping("/historial")
+    public ResponseEntity<Page<BonoHistoricoDto>> getHistorialGlobal(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size
+    ) {
+        return ResponseEntity.ok(bonoService.getHistorialBonos(search, PageRequest.of(page, size)));
+    }
 }

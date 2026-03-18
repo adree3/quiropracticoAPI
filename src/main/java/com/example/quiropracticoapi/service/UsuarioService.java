@@ -13,4 +13,6 @@ public interface UsuarioService {
     void recoverUser(Integer id);
     void unlockUser(Integer id);
     void lockUser(Integer id);
+    UsuarioDto getMe(String username);
+    void updatePassword(String username, String currentPassword, String newPassword);
 }

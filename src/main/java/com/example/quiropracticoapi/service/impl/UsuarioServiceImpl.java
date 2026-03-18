@@ -146,6 +146,33 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuarioRepository.save(user);
     }
 
+    @Override
+    public UsuarioDto getMe(String username) {
+        Usuario user = usuarioRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        return toDto(user);
+    }
+
+    @Override
+    public void updatePassword(String username, String currentPassword, String newPassword) {
+        Usuario user = usuarioRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("CONTRASEÑA_ACTUAL_INCORRECTA");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        usuarioRepository.save(user);
+
+        auditoriaServiceImpl.registrarAccion(
+                TipoAccion.EDITAR,
+                "USUARIO",
+                username,
+                "El usuario cambió su propia contraseña."
+        );
+    }
+
     private UsuarioDto toDto(Usuario u) {
         UsuarioDto dto = new UsuarioDto();
         dto.setIdUsuario(u.getIdUsuario());

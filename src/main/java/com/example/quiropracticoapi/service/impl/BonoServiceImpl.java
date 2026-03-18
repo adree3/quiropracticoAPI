@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.service.impl;
 
+import com.example.quiropracticoapi.dto.BonoHistoricoDto;
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.model.BonoActivo;
@@ -10,6 +11,8 @@ import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.repository.ConsumoBonoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -174,5 +177,26 @@ public class BonoServiceImpl implements BonoService {
                     return b.getFechaConsumo().compareTo(a.getFechaConsumo());
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BonoHistoricoDto> getHistorialBonos(String search, Pageable pageable) {
+        return bonoActivoRepository.findAllWithFilters(search, pageable).map(this::toHistoricoDto);
+    }
+
+    private BonoHistoricoDto toHistoricoDto(BonoActivo b) {
+        String nombreCompleto = b.getCliente().getNombre() + " " + b.getCliente().getApellidos();
+        BonoHistoricoDto dto = new BonoHistoricoDto();
+        dto.setIdBonoActivo(b.getIdBonoActivo());
+        dto.setIdCliente(b.getCliente().getIdCliente());
+        dto.setNombreCliente(nombreCompleto);
+        dto.setNombreServicio(b.getServicioComprado().getNombreServicio());
+        dto.setSesionesTotales(b.getSesionesTotales());
+        dto.setSesionesRestantes(b.getSesionesRestantes());
+        dto.setFechaCompra(b.getFechaCompra());
+        dto.setFechaCaducidad(b.getFechaCaducidad());
+        dto.setPagado(b.getPagoOrigen() != null && b.getPagoOrigen().isPagado());
+        return dto;
     }
 }

@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.UsuarioDto;
+import com.example.quiropracticoapi.dto.auth.PasswordChangeRequest;
 import com.example.quiropracticoapi.dto.auth.RegisterRequest;
 import com.example.quiropracticoapi.model.Usuario;
 import com.example.quiropracticoapi.model.enums.Rol;
@@ -157,5 +158,19 @@ public class UsuarioController {
     @GetMapping("/bloqueados/count")
     public ResponseEntity<Long> countBlocked() {
         return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrueAndActivoTrue());
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UsuarioDto> getMe(java.security.Principal principal) {
+        return ResponseEntity.ok(usuarioService.getMe(principal.getName()));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> updatePassword(
+            java.security.Principal principal,
+            @RequestBody PasswordChangeRequest request
+    ) {
+        usuarioService.updatePassword(principal.getName(), request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok().build();
     }
 }
