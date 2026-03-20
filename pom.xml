@@ -112,6 +112,25 @@
             <artifactId>twilio</artifactId>
             <version>9.14.0</version>
         </dependency>
+
+        <!-- AWS S3 SDK v2 - Compatible con Cloudflare R2 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3-transfer-manager</artifactId>
+            <version>2.25.60</version>
+        </dependency>
+
+        <!-- Apache Tika - Validación profunda de MIME type (Magic Numbers) -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.9.2</version>
+        </dependency>
     </dependencies>
 
     <build>

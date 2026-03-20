@@ -51,6 +51,11 @@ public class Cliente implements SoftDeletable, Auditable {
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
 
+    /** Ruta en R2 de la foto de perfil. Nullable si no tiene foto. 
+     *  Ej: "clientes/15/perfil/foto_perfil.jpg" */
+    @Column(name = "foto_perfil_path", length = 500)
+    private String fotoPerfilPath;
+
     @Override
     public boolean isEliminadoLogico() {
         return !this.activo;

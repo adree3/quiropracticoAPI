@@ -74,10 +74,37 @@ CREATE TABLE `clientes` (
   `direccion` VARCHAR(255) NULL,
   `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `notas_privadas` TEXT NULL COMMENT 'Notas administrativas, no clínicas',
+  `foto_perfil_path` VARCHAR(500) NULL COMMENT 'Ruta en R2. Ej: clientes/15/perfil/foto_perfil.jpg',
   `activo` TINYINT(1) DEFAULT 1,
   PRIMARY KEY (`id_cliente`),
   INDEX `idx_cliente_nombre_apellidos` (`apellidos`, `nombre`),
-  INDEX `idx_cliente_telefono` (`telefono`)
+  INDEX `idx_cliente_telefono` (`telefono`),
+  INDEX `idx_cliente_activo` (`activo`)
+) ENGINE=InnoDB;
+
+-- Documentos y pruebas médicas de los clientes (almacenados en Cloudflare R2)
+DROP TABLE IF EXISTS `documentos_cliente`;
+CREATE TABLE `documentos_cliente` (
+  `id_documento` INT NOT NULL AUTO_INCREMENT,
+  `id_cliente` INT NOT NULL,
+  `nombre_original` VARCHAR(255) NOT NULL COMMENT 'Nombre original del archivo para la UI',
+  `path_archivo` VARCHAR(500) NULL COMMENT 'Ruta en R2. Null durante estado PENDIENTE',
+  `tipo_documento` ENUM('CONSENTIMIENTO_LOPD','CONSENTIMIENTO_TRATAMIENTO','RADIOGRAFIA','RESONANCIA','INFORME_MEDICO','JUSTIFICANTE_PAGO','FOTO_PERFIL','OTRO') NOT NULL,
+  `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME verificado por Tika. Ej: application/pdf',
+  `estado_subida` ENUM('PENDIENTE','ACTIVO','ERROR_SUBIDA') NOT NULL DEFAULT 'PENDIENTE',
+  `error_descripcion` VARCHAR(500) NULL COMMENT 'Mensaje de error cuando estado=ERROR_SUBIDA',
+  `fecha_subida` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `tamanyo_bytes` BIGINT NOT NULL COMMENT 'Tamaño real del archivo para mostrar en UI y controlar cuota',
+  `activo` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0=Borrado lógico (RGPD). NUNCA borrar de R2 sin petición expresa.',
+  PRIMARY KEY (`id_documento`),
+  INDEX `idx_doc_cliente` (`id_cliente`),
+  INDEX `idx_doc_estado` (`estado_subida`),
+  INDEX `idx_doc_tipo` (`tipo_documento`),
+  CONSTRAINT `fk_documento_cliente`
+    FOREIGN KEY (`id_cliente`)
+    REFERENCES `clientes` (`id_cliente`)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------
@@ -274,6 +301,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE auditoria;
 TRUNCATE TABLE consumos_bono;
 TRUNCATE TABLE bonos_activos;
+TRUNCATE TABLE documentos_cliente;
 TRUNCATE TABLE historial_clinico;
 TRUNCATE TABLE pagos;
 TRUNCATE TABLE citas;
