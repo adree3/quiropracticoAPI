@@ -9,7 +9,6 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -103,6 +102,20 @@ public class R2StorageService implements StorageService {
             return false;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    @Override
+    public byte[] getFileBytes(String path) {
+        try {
+            software.amazon.awssdk.services.s3.model.GetObjectRequest getObjectRequest = 
+                software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(path)
+                    .build();
+            return s3Client.getObjectAsBytes(getObjectRequest).asByteArray();
+        } catch (Exception e) {
+            throw new StorageException("No se pudo descargar el archivo: " + path, e);
         }
     }
 

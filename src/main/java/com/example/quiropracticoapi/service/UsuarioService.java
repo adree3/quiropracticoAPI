@@ -15,4 +15,10 @@ public interface UsuarioService {
     void lockUser(Integer id);
     UsuarioDto getMe(String username);
     void updatePassword(String username, String currentPassword, String newPassword);
+    
+    /** Sube la foto a R2 y actualiza el usuario */
+    String uploadFotoPerfil(Integer idUsuario, org.springframework.web.multipart.MultipartFile file);
+    
+    /** Descarga la foto en bytes para el proxy con caché estática */
+    byte[] getFotoPerfil(Integer idUsuario);
 }

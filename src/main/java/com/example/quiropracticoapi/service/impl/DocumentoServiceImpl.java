@@ -128,33 +128,6 @@ public class DocumentoServiceImpl implements DocumentoService {
                 idDocumento.toString(), "Documento marcado como inactivo: " + doc.getNombreOriginal());
     }
 
-    @Override
-    @Transactional
-    public String actualizarFotoPerfil(Integer idCliente, MultipartFile file) {
-        Cliente cliente = clienteRepository.findById(idCliente)
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-
-        String detectedMimeType = detectSafeMimeType(file);
-        if (!detectedMimeType.startsWith("image/")) {
-            throw new IllegalArgumentException("El archivo debe ser una imagen válida.");
-        }
-
-        String extension = getExtension(file.getOriginalFilename());
-        String path = "clientes/" + idCliente + "/perfil/foto_perfil" + extension;
-
-        try {
-            storageService.store(file, path);
-            cliente.setFotoPerfilPath(path);
-            clienteRepository.save(cliente);
-            
-            auditoriaService.registrarAccion(TipoAccion.EDITAR, "CLIENTE", 
-                    idCliente.toString(), "Foto de perfil actualizada", null, "Foto perfil actualizada");
-            
-            return storageService.generatePresignedUrl(path);
-        } catch (Exception e) {
-            throw new StorageException("No se pudo actualizar la foto de perfil", e);
-        }
-    }
 
     private String detectSafeMimeType(MultipartFile file) {
         try {

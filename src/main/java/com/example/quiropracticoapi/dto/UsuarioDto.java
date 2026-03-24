@@ -15,4 +15,5 @@ public class UsuarioDto {
     private boolean activo;
     private boolean cuentaBloqueada;
     private LocalDateTime ultimaConexion;
+    private boolean tieneFotoPerfil;
 }

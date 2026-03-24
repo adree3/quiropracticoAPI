@@ -26,11 +26,6 @@ public interface DocumentoService {
      */
     void eliminarDocumento(Integer idDocumento);
 
-    /**
-     * Subida/Reemplazo de foto de perfil con registro en auditoría.
-     */
-    String actualizarFotoPerfil(Integer idCliente, MultipartFile file);
-
     /** Genera la URL prefirmada justo cuando se va a visualizar (JIT) */
     String obtenerUrlTemporal(Integer idDocumento);
 }

@@ -20,6 +20,9 @@ public interface StorageService {
     /** Verifica si el archivo existe físicamente en el storage */
     boolean exists(String path);
 
+    /** Obtiene el archivo en bruto como array de bytes para actuar como proxy */
+    byte[] getFileBytes(String path);
+
     /** Borra el objeto en R2 mediante su path/key */
     void delete(String path);
 }

@@ -1,6 +1,5 @@
 package com.example.quiropracticoapi.model;
 
-import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.Rol;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -53,6 +52,11 @@ public class Usuario implements UserDetails, SoftDeletable, Auditable {
 
     @Column(name = "ultima_conexion")
     private LocalDateTime ultimaConexion;
+
+    /** Ruta en R2 de la foto de perfil. Nullable si no tiene foto. 
+     *  Ej: "usuarios/5/perfil/foto_perfil.jpg" */
+    @Column(name = "foto_perfil_path", length = 500)
+    private String fotoPerfilPath;
 
     @JsonIgnore
     @Override

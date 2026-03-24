@@ -7,6 +7,7 @@ import com.example.quiropracticoapi.model.Usuario;
 import com.example.quiropracticoapi.model.enums.Rol;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import com.example.quiropracticoapi.service.UsuarioService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -172,5 +173,24 @@ public class UsuarioController {
     ) {
         usuarioService.updatePassword(principal.getName(), request.getCurrentPassword(), request.getNewPassword());
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Subir/Actualizar foto de perfil")
+    @PutMapping("/{id}/foto-perfil")
+    public ResponseEntity<String> uploadFotoPerfil(@PathVariable Integer id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(usuarioService.uploadFotoPerfil(id, file));
+    }
+
+    @Operation(summary = "Obtener foto de perfil (Proxy JIT/Caché)")
+    @GetMapping("/{id}/foto-perfil")
+    public ResponseEntity<byte[]> getFotoPerfil(@PathVariable Integer id) {
+        byte[] image = usuarioService.getFotoPerfil(id);
+        
+        // Cache configurado a 1 año, ya que la URL es privada y cuando haya una foto nueva
+        // el front la renovará automáticamente (o puede forzar ignore cache).
+        return ResponseEntity.ok()
+            .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg") 
+            .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+            .body(image);
     }
 }

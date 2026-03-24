@@ -46,14 +46,6 @@ public class DocumentoController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Actualizar foto de perfil", description = "Sube la foto a R2 y devuelve la URL prefirmada.")
-    @PutMapping("/clientes/{idCliente}/foto-perfil")
-    public ResponseEntity<String> actualizarFotoPerfil(
-            @PathVariable Integer idCliente,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(documentoService.actualizarFotoPerfil(idCliente, file));
-    }
-
     @Operation(summary = "Obtener URL temporal (JIT)", description = "Genera una URL prefirmada de 15 min justo antes de visualizar el archivo.")
     @GetMapping("/{idDocumento}/url")
     public ResponseEntity<String> obtenerUrl(@PathVariable Integer idDocumento) {

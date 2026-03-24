@@ -19,12 +19,14 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
+    private final com.example.quiropracticoapi.service.StorageService storageService;
 
     @Autowired
-    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, AuditoriaServiceImpl auditoriaServiceImpl) {
+    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, AuditoriaServiceImpl auditoriaServiceImpl, com.example.quiropracticoapi.service.StorageService storageService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
+        this.storageService = storageService;
     }
 
     @Override
@@ -173,6 +175,50 @@ public class UsuarioServiceImpl implements UsuarioService {
         );
     }
 
+    @Override
+    public String uploadFotoPerfil(Integer idUsuario, org.springframework.web.multipart.MultipartFile file) {
+        Usuario user = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("El archivo debe ser una imagen válida.");
+        }
+
+        String extension = "";
+        String filename = file.getOriginalFilename();
+        if (filename != null && filename.contains(".")) {
+            extension = filename.substring(filename.lastIndexOf("."));
+        }
+        
+        String path = "usuarios/" + idUsuario + "/perfil/foto_perfil" + extension;
+
+        try {
+            storageService.store(file, path);
+            user.setFotoPerfilPath(path);
+            usuarioRepository.save(user);
+            
+            auditoriaServiceImpl.registrarAccion(TipoAccion.EDITAR, "USUARIO", 
+                    user.getUsername(), "Actualizó su foto de perfil");
+            
+            return path;
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo actualizar la foto de perfil", e);
+        }
+    }
+
+    @Override
+    public byte[] getFotoPerfil(Integer idUsuario) {
+        Usuario user = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (user.getFotoPerfilPath() == null || user.getFotoPerfilPath().isBlank()) {
+            throw new ResourceNotFoundException("El usuario no tiene foto de perfil");
+        }
+
+        return storageService.getFileBytes(user.getFotoPerfilPath());
+    }
+
     private UsuarioDto toDto(Usuario u) {
         UsuarioDto dto = new UsuarioDto();
         dto.setIdUsuario(u.getIdUsuario());
@@ -182,6 +228,7 @@ public class UsuarioServiceImpl implements UsuarioService {
         dto.setActivo(u.isActivo());
         dto.setCuentaBloqueada(u.isCuentaBloqueada());
         dto.setUltimaConexion(u.getUltimaConexion());
+        dto.setTieneFotoPerfil(u.getFotoPerfilPath() != null && !u.getFotoPerfilPath().isBlank());
         return dto;
     }
 }

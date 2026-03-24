@@ -21,6 +21,7 @@ CREATE TABLE `usuarios` (
   `intentos_fallidos` INT NOT NULL DEFAULT 0,
   `cuenta_bloqueada` TINYINT(1) NOT NULL DEFAULT 0,
   `ultima_conexion` DATETIME NULL,
+  `foto_perfil_path` VARCHAR(500) NULL COMMENT 'Ruta en R2. Ej: usuarios/5/perfil/foto_perfil.jpg',
   PRIMARY KEY (`id_usuario`)
 ) ENGINE=InnoDB;
 
@@ -74,7 +75,6 @@ CREATE TABLE `clientes` (
   `direccion` VARCHAR(255) NULL,
   `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `notas_privadas` TEXT NULL COMMENT 'Notas administrativas, no clínicas',
-  `foto_perfil_path` VARCHAR(500) NULL COMMENT 'Ruta en R2. Ej: clientes/15/perfil/foto_perfil.jpg',
   `activo` TINYINT(1) DEFAULT 1,
   PRIMARY KEY (`id_cliente`),
   INDEX `idx_cliente_nombre_apellidos` (`apellidos`, `nombre`),
