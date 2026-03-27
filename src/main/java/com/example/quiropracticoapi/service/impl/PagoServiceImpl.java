@@ -64,6 +64,14 @@ public class PagoServiceImpl implements PagoService {
     }
 
     @Override
+    public List<PagoDto> getPagosCliente(Integer idCliente) {
+        return pagoRepository.findByClienteIdCliente(idCliente)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public BalanceDto getBalance(LocalDateTime inicio, LocalDateTime fin) {
         if (inicio == null) inicio = LocalDateTime.of(2000, 1, 1, 0, 0);
         if (fin == null) fin = LocalDateTime.now();

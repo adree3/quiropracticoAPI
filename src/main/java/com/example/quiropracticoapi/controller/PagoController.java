@@ -52,6 +52,12 @@ public class PagoController {
         return ResponseEntity.ok(pagoService.getPagos(fechaInicio, fechaFin, pagado, search, page, size));
     }
 
+    @Operation(summary = "Obtener pagos de un cliente específico")
+    @GetMapping("/cliente/{idCliente}")
+    public ResponseEntity<List<PagoDto>> getPagosCliente(@PathVariable Integer idCliente) {
+        return ResponseEntity.ok(pagoService.getPagosCliente(idCliente));
+    }
+
     /**
      * Obtiene el total cobrado y el total pendiente
      * @param fechaInicio inicio del rango

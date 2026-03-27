@@ -13,7 +13,7 @@ public interface PagoService {
     void registrarVentaBono(VentaBonoRequestDto request);
 
     Page<PagoDto> getPagos(LocalDateTime inicio, LocalDateTime fin, boolean pagado, String search, int page, int size);
-
+    List<PagoDto> getPagosCliente(Integer idCliente);
     BalanceDto getBalance(LocalDateTime inicio, LocalDateTime fin);
 
     void confirmarPago(Integer idPago);
