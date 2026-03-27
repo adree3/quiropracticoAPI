@@ -7,6 +7,7 @@ public enum TipoDocumento {
     RESONANCIA,
     INFORME_MEDICO,
     JUSTIFICANTE_PAGO,
+    JUSTIFICANTE_ASISTENCIA,
     FOTO_PERFIL,
     OTRO
 }

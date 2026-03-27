@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.DocumentoCliente;
 import com.example.quiropracticoapi.model.enums.EstadoSubida;
+import com.example.quiropracticoapi.model.enums.TipoDocumento;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,4 +30,13 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
      * Devuelve todos los documentos en estado ERROR_SUBIDA para revisión del admin.
      */
     List<DocumentoCliente> findByEstadoSubida(EstadoSubida estadoSubida);
+
+    /**
+     * Comprueba si ya existe un documento activo de tipo firma (JUSTIFICANTE_ASISTENCIA)
+     * vinculado a una cita concreta. Usado para garantizar la unicidad de firma por cita.
+     */
+    @Query("SELECT COUNT(d) > 0 FROM DocumentoCliente d WHERE d.cita.idCita = :idCita " +
+           "AND d.tipoDocumento = :tipo AND d.estadoSubida = 'ACTIVO' AND d.activo = true")
+    boolean existsFirmaActivaParaCita(@Param("idCita") Integer idCita,
+                                      @Param("tipo") TipoDocumento tipo);
 }

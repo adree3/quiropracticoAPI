@@ -131,6 +131,13 @@
             <artifactId>tika-core</artifactId>
             <version>2.9.2</version>
         </dependency>
+
+        <!-- Conversión y Compresión ligera de imágenes (Miniaturas / Anti-OOM en Frontend) -->
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>0.4.20</version>
+        </dependency>
     </dependencies>
 
     <build>

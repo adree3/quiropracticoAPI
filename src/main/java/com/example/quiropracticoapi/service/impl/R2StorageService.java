@@ -73,15 +73,45 @@ public class R2StorageService implements StorageService {
         }
     }
 
+    @Override
+    public void storeBytes(byte[] content, String path, String contentType) {
+        try {
+            if (content == null || content.length == 0) {
+                throw new StorageException("El contenido de bytes está vacío.");
+            }
+
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(path)
+                    .contentType(contentType)
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(content));
+            
+        } catch (Exception e) {
+            throw new StorageException("Fallo al subir bytes (miniatura) a Cloudflare R2: " + path, e);
+        }
+    }
+
     /**
      * Firma una URL de descarga para que el frontend pueda ver el archivo privado.
      * TTL: 15 minutos (definido en el plan).
      */
     @Override
     public String generatePresignedUrl(String path) {
+        return generatePresignedUrl(path, null);
+    }
+
+    @Override
+    public String generatePresignedUrl(String path, String downloadFileName) {
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(15))
-                .getObjectRequest(builder -> builder.bucket(bucketName).key(path).build())
+                .getObjectRequest(builder -> {
+                    builder.bucket(bucketName).key(path);
+                    if (downloadFileName != null) {
+                        builder.responseContentDisposition("attachment; filename=\"" + downloadFileName + "\"");
+                    }
+                })
                 .build();
 
         PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
