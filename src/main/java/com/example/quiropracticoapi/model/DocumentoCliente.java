@@ -37,6 +37,20 @@ public class DocumentoCliente {
     @Column(name = "path_archivo", length = 500)
     private String pathArchivo;
 
+    /** Relación opcional con la Cita donde se generó el documento clínico */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_cita", nullable = true)
+    private Cita cita;
+
+    /** Relación opcional con el Pago asociado (para carpeta Facturación) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_pago", nullable = true)
+    private Pago pago;
+
+    /** Interpretación médica detallada (Hallazgos, prescripciones asociadas) */
+    @Column(name = "notas_medicas", columnDefinition = "TEXT")
+    private String notasMedicas;
+
     /** Tipo de negocio del documento */
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_documento", nullable = false, length = 50)

@@ -9,8 +9,12 @@ import java.time.LocalDateTime;
 @Data
 public class DocumentoDto {
     private Integer idDocumento;
+    private Integer idCliente;
+    private Integer idCita;
+    private Integer idPago;
+    private String notasMedicas;
     private String nombreOriginal;
-    private String url; // URL prefirmada temporal
+    private String url;
     private TipoDocumento tipoDocumento;
     private String mimeType;
     private EstadoSubida estadoSubida;
