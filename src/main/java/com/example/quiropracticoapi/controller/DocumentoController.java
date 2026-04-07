@@ -42,6 +42,12 @@ public class DocumentoController {
         return ResponseEntity.ok(documentoService.listarDocumentosCliente(idCliente));
     }
 
+    @Operation(summary = "Listar documentos eliminados", description = "Devuelve la bandeja de la papelera de un cliente.")
+    @GetMapping("/clientes/{idCliente}/papelera")
+    public ResponseEntity<List<DocumentoDto>> listarDocumentosEliminados(@PathVariable Integer idCliente) {
+        return ResponseEntity.ok(documentoService.listarDocumentosEliminadosCliente(idCliente));
+    }
+
     @Operation(summary = "Borrado lógico de documento")
     @DeleteMapping("/{idDocumento}")
     public ResponseEntity<Void> eliminarDocumento(@PathVariable Integer idDocumento) {
@@ -90,7 +96,7 @@ public class DocumentoController {
     public ResponseEntity<byte[]> obtenerThumbnail(@PathVariable Integer idDocumento) {
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg")
-                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=31536000") // 1 año cache en app
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=31536000")
                 .body(documentoService.obtenerThumbnailBytes(idDocumento));
     }
 
@@ -101,5 +107,11 @@ public class DocumentoController {
             @RequestParam(required = false) Integer idPago,
             @RequestParam(required = false) String notas) {
         return ResponseEntity.ok(documentoService.actualizarMetadatos(id, idCita, idPago, notas));
+    }
+
+    @Operation(summary = "Restaurar documento", description = "Devuelve un documento al estado activo.")
+    @PatchMapping("/{id}/restaurar")
+    public ResponseEntity<DocumentoDto> restaurarDocumento(@PathVariable Integer id) {
+        return ResponseEntity.ok(documentoService.restaurarDocumento(id));
     }
 }

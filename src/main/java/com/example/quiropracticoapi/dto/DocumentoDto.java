@@ -20,4 +20,5 @@ public class DocumentoDto {
     private EstadoSubida estadoSubida;
     private Long tamanyoBytes;
     private LocalDateTime fechaSubida;
+    private LocalDateTime fechaEliminacionLogica;
 }

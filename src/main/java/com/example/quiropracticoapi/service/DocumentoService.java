@@ -22,9 +22,19 @@ public interface DocumentoService {
     List<DocumentoDto> listarDocumentosCliente(Integer idCliente);
 
     /**
+     * Lista los documentos inactivos de un cliente (para la Papelera).
+     */
+    List<DocumentoDto> listarDocumentosEliminadosCliente(Integer idCliente);
+
+    /**
      * Borrado lógico del documento.
      */
     void eliminarDocumento(Integer idDocumento);
+
+    /**
+     * Restaura un documento eliminado lógicamente devolviéndole su estado activo.
+     */
+    DocumentoDto restaurarDocumento(Integer idDocumento);
 
     /** Genera la URL prefirmada justo cuando se va a visualizar (JIT) */
     String obtenerUrlTemporal(Integer idDocumento, boolean download);

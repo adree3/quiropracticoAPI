@@ -20,6 +20,11 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
     List<DocumentoCliente> findByClienteIdClienteAndActivoTrueOrderByFechaSubidaDesc(Integer idCliente);
 
     /**
+     * Devuelve los documentos inactivos (en la papelera) de un cliente, ordenados por fecha descendente de borrado.
+     */
+    List<DocumentoCliente> findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(Integer idCliente);
+
+    /**
      * Busca registros atascados en PENDIENTE más antiguos que un tiempo dado.
      * Usado por el Cronjob de limpieza para detectar subidas fallidas.
      */

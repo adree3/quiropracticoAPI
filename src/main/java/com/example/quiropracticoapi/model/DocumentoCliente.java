@@ -81,6 +81,10 @@ public class DocumentoCliente {
     @Column(name = "activo", nullable = false)
     private boolean activo = true;
 
+    /** Fecha en la que el documento fue enviado a la papelera (borrado lógico) */
+    @Column(name = "fecha_eliminacion_logica")
+    private LocalDateTime fechaEliminacionLogica;
+
     @PrePersist
     protected void onCreate() {
         if (this.fechaSubida == null) {

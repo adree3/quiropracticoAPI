@@ -96,6 +96,7 @@ CREATE TABLE `documentos_cliente` (
   `fecha_subida` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `tamanyo_bytes` BIGINT NOT NULL COMMENT 'Tamaño real del archivo para mostrar en UI y controlar cuota',
   `activo` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0=Borrado lógico (RGPD). NUNCA borrar de R2 sin petición expresa.',
+  `fecha_eliminacion_logica` DATETIME NULL COMMENT 'Momento en que fue movido a la papelera',
   PRIMARY KEY (`id_documento`),
   INDEX `idx_doc_cliente` (`id_cliente`),
   INDEX `idx_doc_estado` (`estado_subida`),

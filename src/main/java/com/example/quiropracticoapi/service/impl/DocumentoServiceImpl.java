@@ -132,7 +132,7 @@ public class DocumentoServiceImpl implements DocumentoService {
                 subject = "cita_firmada";
             } else if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
                 subject = (pago != null && pago.getServicioPagado() != null) 
-                        ? "cobro_" + pago.getServicioPagado().getNombre().toLowerCase().replace(" ", "_")
+                        ? "cobro_" + pago.getServicioPagado().getNombreServicio().toLowerCase().replace(" ", "_")
                         : "cobro";
             } else if (tipo == TipoDocumento.CONSENTIMIENTO_LOPD || tipo == TipoDocumento.CONSENTIMIENTO_TRATAMIENTO) {
                 subject = "consentimiento_" + tipo.name().replace("CONSENTIMIENTO_", "").toLowerCase();
@@ -218,16 +218,41 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    public List<DocumentoDto> listarDocumentosEliminadosCliente(Integer idCliente) {
+        return documentoRepository.findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(idCliente)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public void eliminarDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
         
         doc.setActivo(false);
+        doc.setFechaEliminacionLogica(LocalDateTime.now());
         documentoRepository.save(doc);
         
         auditoriaService.registrarAccion(TipoAccion.ELIMINAR_LOGICO, "DOCUMENTO", 
                 idDocumento.toString(), "Documento marcado como inactivo: " + doc.getNombreOriginal());
+    }
+
+    @Override
+    @Transactional
+    public DocumentoDto restaurarDocumento(Integer idDocumento) {
+        DocumentoCliente doc = documentoRepository.findById(idDocumento)
+                .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        
+        doc.setActivo(true);
+        doc.setFechaEliminacionLogica(null);
+        documentoRepository.save(doc);
+        
+        auditoriaService.registrarAccion(TipoAccion.REACTIVAR, "DOCUMENTO",
+                idDocumento.toString(), "Documento restaurado de la papelera: " + doc.getNombreOriginal());
+        
+        return mapToDto(doc);
     }
 
 
@@ -356,6 +381,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         dto.setEstadoSubida(doc.getEstadoSubida());
         dto.setTamanyoBytes(doc.getTamanyoBytes());
         dto.setFechaSubida(doc.getFechaSubida());
+        dto.setFechaEliminacionLogica(doc.getFechaEliminacionLogica());
         
         return dto;
     }
