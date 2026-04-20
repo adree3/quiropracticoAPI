@@ -20,6 +20,11 @@ public interface DocumentoService {
      * Lista los documentos de un cliente con URLs prefirmadas frescas.
      */
     List<DocumentoDto> listarDocumentosCliente(Integer idCliente);
+    
+    /**
+     * Lista los documentos activos vinculados a una cita específica.
+     */
+    List<DocumentoDto> listarDocumentosCita(Integer idCita);
 
     /**
      * Lista los documentos inactivos de un cliente (para la Papelera).

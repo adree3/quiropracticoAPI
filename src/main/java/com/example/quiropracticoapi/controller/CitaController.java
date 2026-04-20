@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -22,15 +23,25 @@ import org.springframework.data.web.PageableDefault;
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/citas")
 @Tag(name = "Gestión de Citas", description = "Endpoints para reservar, cancelar y ver citas")
 public class CitaController {
     private final CitaService citaService;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    private final com.example.quiropracticoapi.service.impl.PdfFirmaService pdfFirmaService;
+    private final com.example.quiropracticoapi.service.impl.R2StorageService r2StorageService;
 
     @Autowired
-    public CitaController(CitaService citaService) {
+    public CitaController(CitaService citaService, 
+                          org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate,
+                          com.example.quiropracticoapi.service.impl.PdfFirmaService pdfFirmaService,
+                          com.example.quiropracticoapi.service.impl.R2StorageService r2StorageService) {
         this.citaService = citaService;
+        this.messagingTemplate = messagingTemplate;
+        this.pdfFirmaService = pdfFirmaService;
+        this.r2StorageService = r2StorageService;
     }
 
     // Historial de un Cliente
@@ -43,7 +54,7 @@ public class CitaController {
             @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
             @PageableDefault(size = 15, sort = "fechaHoraInicio") Pageable pageable) {
         
-        System.out.println("DEBUG: getCitasCliente - idCliente: " + idCliente + ", fechaInicio: " + fechaInicio + ", fechaFin: " + fechaFin);
+        log.debug("getCitasCliente - idCliente: {}, fechaInicio: {}, fechaFin: {}", idCliente, fechaInicio, fechaFin);
         
         Page<CitaDto> citas = citaService.getCitasPorCliente(idCliente, estado, fechaInicio, fechaFin, pageable);
         return ResponseEntity.ok(citas);
@@ -140,5 +151,80 @@ public class CitaController {
             @RequestParam(required = false) Integer idCitaExcluir
     ) {
         return ResponseEntity.ok(citaService.getHuecosDisponibles(idQuiro, fecha, idCitaExcluir));
+    }
+
+    // --- MODO KIOSCO / FIRMA ---
+
+    @Operation(summary = "Solicitar firma en Kiosco", description = "Genera un borrador del PDF y envía una señal WebSocket a la tablet con la URL y metadatos.")
+    @PostMapping("/{idCita}/solicitar-firma")
+    public ResponseEntity<Void> solicitarFirmaKiosco(@PathVariable Integer idCita) {
+        CitaDto cita = citaService.getCitaById(idCita);
+        
+        // 1. Generar el borrador físico en R2 y obtener URL temporal
+        String urlBorrador = citaService.generarBorradorFirma(idCita);
+        
+        // 2. Preparar payload rico para la tablet
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("action", "OPEN_SIGNATURE");
+        payload.put("idCita", cita.getIdCita());
+        payload.put("nombrePaciente", cita.getNombreClienteCompleto());
+        payload.put("urlPdf", urlBorrador);
+        
+        // Datos de contexto para la UI de la tablet
+        payload.put("fecha", cita.getFechaHoraInicio().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        payload.put("horaInicio", cita.getFechaHoraInicio().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
+        payload.put("horaFin", cita.getFechaHoraFin().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
+        
+        // Info de pago/bono
+        if (cita.getInfoPago() != null && cita.getInfoPago().contains("Bono")) {
+            payload.put("esBono", true);
+            payload.put("infoBono", cita.getInfoPago());
+            // Extraer ID de bono si es posible (formato #B-XXX)
+            try {
+                String[] parts = cita.getInfoPago().split("#B-");
+                if (parts.length > 1) {
+                    payload.put("idBono", parts[1].split(" ")[0]);
+                }
+            } catch (Exception e) {}
+        } else {
+            payload.put("esBono", false);
+        }
+        
+        messagingTemplate.convertAndSend("/topic/kiosk", payload);
+        
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{idCita}/firmar")
+    public ResponseEntity<java.util.Map<String, Object>> firmarCita(@PathVariable Integer idCita, @RequestBody java.util.Map<String, String> payload) {
+        String base64Firma = payload.get("firmaBase64");
+        
+        // 1. Llamar a CitaService para que procese la firma
+        CitaDto citaActualizada = citaService.procesarFirma(idCita, base64Firma);
+        
+        // Generar URL prefirmada del PDF ya firmado
+        String signedUrl = r2StorageService.generatePresignedUrl(citaActualizada.getRutaJustificante());
+
+        // 2. Avisar a kiosco para cerrar pestaña (las que no sean la activa)
+        java.util.Map<String, Object> wsPayload = new java.util.HashMap<>();
+        wsPayload.put("action", "CLOSE_SIGNATURE");
+        messagingTemplate.convertAndSend("/topic/kiosk", wsPayload);
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("cita", citaActualizada);
+        response.put("signedPdfUrl", signedUrl);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Obtener URL del justificante", description = "Devuelve una URL temporal de 15 min para visualizar el justificante en R2.")
+    @GetMapping("/{idCita}/justificante")
+    public ResponseEntity<java.util.Map<String, String>> getUrlJustificante(@PathVariable Integer idCita) {
+        CitaDto cita = citaService.getCitaById(idCita);
+        if (cita.getRutaJustificante() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String url = r2StorageService.generatePresignedUrl(cita.getRutaJustificante());
+        return ResponseEntity.ok(java.util.Map.of("url", url));
     }
 }

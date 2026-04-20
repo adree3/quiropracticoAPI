@@ -27,6 +27,9 @@ public class CitaMapper {
         dto.setFechaHoraFin(cita.getFechaHoraFin());
         dto.setEstado(cita.getEstado());
         dto.setNotasRecepcion(cita.getNotasRecepcion());
+        dto.setFirmada(cita.isFirmada());
+        dto.setRutaJustificante(cita.getRutaJustificante());
+        dto.setFirmaBase64(cita.getFirmaBase64());
         return dto;
     }
 

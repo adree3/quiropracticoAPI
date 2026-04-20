@@ -47,11 +47,26 @@ public class Cita implements SoftDeletable, Auditable {
     @Column(name = "estado", nullable = false)
     private EstadoCita estado = EstadoCita.programada;
 
+    @Column(name = "motivo_cancelacion", columnDefinition = "TEXT")
+    private String motivoCancelacion;
+
+    @Column(name = "firmada", nullable = false)
+    private boolean firmada = false;
+
+    @Column(name = "ruta_justificante")
+    private String rutaJustificante;
+
+    @Column(name = "firma_base64", columnDefinition = "MEDIUMTEXT")
+    private String firmaBase64;
+
     @Column(name = "notas_recepcion", columnDefinition = "TEXT")
     private String notasRecepcion;
 
+    @Column(name = "id_bono_preasignado")
+    private Integer idBonoPreasignado;
+
     @JsonIgnore
-    @OneToOne(mappedBy = "cita", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "cita", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private ConsumoBono consumoBono;
 
     @Override

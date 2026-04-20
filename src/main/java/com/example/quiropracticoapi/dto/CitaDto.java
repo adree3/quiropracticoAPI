@@ -21,4 +21,7 @@ public class CitaDto {
     private String notasRecepcion;
     private String infoPago;
     private Integer idBonoCliente;
+    private boolean firmada;
+    private String rutaJustificante;
+    private String firmaBase64;
 }

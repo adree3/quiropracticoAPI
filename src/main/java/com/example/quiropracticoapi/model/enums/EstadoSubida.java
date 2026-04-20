@@ -7,5 +7,7 @@ public enum EstadoSubida {
     ACTIVO,
     /** Ocurrió un error durante la subida. El archivo puede o no estar en R2.
      *  Ver campo error_descripcion para diagnóstico. NUNCA se elimina de R2. */
-    ERROR_SUBIDA
+    ERROR_SUBIDA,
+    /** Archivo eliminado y desactivado. */
+    ELIMINADO
 }

@@ -218,6 +218,14 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    public List<DocumentoDto> listarDocumentosCita(Integer idCita) {
+        return documentoRepository.findByCitaIdCitaAndActivoTrueOrderByFechaSubidaDesc(idCita)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<DocumentoDto> listarDocumentosEliminadosCliente(Integer idCliente) {
         return documentoRepository.findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(idCliente)
                 .stream()

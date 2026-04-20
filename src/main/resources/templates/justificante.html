@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cartilla de Bono Quiropráctico</title>
+    <style>
+        /* Instrucción exclusiva para el motor de PDF */
+        @page {
+            size: A4 portrait;
+            margin: 0; /* Quitamos el margen aquí porque lo da el contenedor */
+        }
+
+        /* Estilos para que en el navegador web se vea como un folio */
+        @media screen {
+            body {
+                background-color: #e0e0e0;
+                padding: 20px;
+                display: flex;
+                justify-content: center;
+            }
+            .hoja-a4 {
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                margin: 0 auto;
+            }
+        }
+
+        /* EL FOLIO A4 FÍSICO */
+        .hoja-a4 {
+            background-color: white;
+            width: 210mm;
+            /* Quitamos min-height fijo para evitar que fuerce una 2ª página si hay un pelín de overflow */
+            padding: 15mm; 
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .title {
+            color: #2c3e50;
+            font-size: 22px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Tablas de datos premium */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #333;
+        }
+        .info-table td {
+            padding: 8px;
+            border: 1px solid #eee;
+        }
+        .info-table th {
+            padding: 8px;
+            border: 1px solid #eee;
+            background-color: #f8f9fa;
+            text-align: left;
+            width: 20%;
+            color: #555;
+        }
+
+        /* LA CARTILLA DE 15 HUECOS */
+        .bono-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+        .bono-table th, .bono-table td {
+            border: 1px solid #999;
+            padding: 5px;
+            text-align: center;
+            vertical-align: middle;
+            height: 45px; /* Altura forzada para que las 15 filas ocupen bien la hoja */
+        }
+        .bono-table th {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: bold;
+        }
+        .sig-container {
+            display: block;
+            margin: 0 auto;
+            text-align: center;
+            /* Eliminamos height fijo y overflow para evitar el recorte */
+        }
+        .sig-img {
+            /* Al fijar la altura, el motor escala el ancho proporcionalmente */
+            height: 35px; 
+            width: auto;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .legal-footer {
+            margin-top: 30px;
+            font-size: 10px;
+            color: #777;
+            text-align: justify;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            line-height: 1.4;
+        }
+
+        /* Quita fondos grises y sombras al imprimir o generar PDF */
+        @media print {
+            body { background-color: white; padding: 0; display: block; }
+            .hoja-a4 { box-shadow: none; margin: 0; width: 100%; height: 100%; padding: 15mm; }
+        }
+    </style>
+</head>
+<body>
+<div class="hoja-a4">
+    <div class="header">
+        <h1 class="title">HISTORIAL DE ASISTENCIA Y BONO</h1>
+        <p style="margin: 5px 0; font-size: 15px; color: #555;">Clínica Quiropráctica VIP</p>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <th>Paciente</th>
+            <td th:text="${clienteNombre}">Pepe González</td>
+            <th>DNI/NIE</th>
+            <td th:text="${clienteDni}">12345678X</td>
+        </tr>
+        <tr>
+            <th>Bono Contratado</th>
+            <td th:text="${bonoNombre}">Bono 15 Sesiones Intensivo</td>
+            <th>Quiropráctico</th>
+            <td th:text="${quiroNombre}">Dr. Nombre Apellido</td>
+        </tr>
+        <tr>
+            <th>Caducidad</th>
+            <td th:text="${bonoCaducidad != null ? bonoCaducidad : 'Sin caducidad'}">31/12/2026</td>
+            <th>ID Bono</th>
+            <td th:text="${bonoId}">#B-4458</td>
+        </tr>
+    </table>
+
+    <table class="bono-table">
+        <thead>
+        <tr>
+            <th style="width: 15%;">Sesión Nº</th>
+            <th style="width: 25%;">Fecha</th>
+            <th style="width: 20%;">Hora</th>
+            <th style="width: 40%;">Firma del Paciente</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="sesion : ${listaSesiones}">
+            <td th:text="${sesion.numeroSesion}">1</td>
+
+            <td th:text="${sesion.fecha != null ? sesion.fecha : '---'}">10 Nov 2026</td>
+            <td th:text="${sesion.hora != null ? sesion.hora : '---'}">10:00</td>
+
+            <td>
+                <div class="sig-container">
+                    <img th:if="${sesion.firmaBase64 != null}" th:src="'data:image/png;base64,' + ${sesion.firmaBase64}" class="sig-img" />
+                    <span th:if="${sesion.firmaBase64 == null}" style="color: #ccc; font-style: italic;">Pendiente</span>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="legal-footer">
+        <strong>Condiciones de Uso y Conformidad:</strong> El paciente, mediante su firma digital en cada sesión, confirma su asistencia y conformidad con el tratamiento recibido en la fecha y hora indicadas. Los bonos son personales e intransferibles (salvo familiares directos autorizados) y no admiten devoluciones una vez iniciado su consumo.<br /><br />
+        <strong>Protección de Datos (RGPD):</strong> En cumplimiento del Reglamento (UE) 2016/679, le informamos que sus datos y firma son tratados con la finalidad de gestionar su historial clínico y facturación. El responsable del tratamiento es Clínica Quiropráctica VIP. Puede ejercer sus derechos de acceso, rectificación y supresión ante la clínica. Documento generado el <span th:text="${fechaGeneracion}">01/01/2026</span>
+    </div>
+</div>
+</body>
+</html>

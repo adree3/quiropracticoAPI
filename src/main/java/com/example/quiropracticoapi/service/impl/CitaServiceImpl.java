@@ -7,9 +7,13 @@ import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.CitaMapper;
 import com.example.quiropracticoapi.model.*;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
+import com.example.quiropracticoapi.model.enums.EstadoSubida;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.*;
 import com.example.quiropracticoapi.service.CitaService;
+import com.example.quiropracticoapi.service.impl.R2StorageService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class CitaServiceImpl implements CitaService {
     private final CitaRepository citaRepository;
@@ -37,12 +42,29 @@ public class CitaServiceImpl implements CitaService {
     private final ConsumoBonoRepository consumoBonoRepository;
     private final WhatsAppService whatsAppService;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
+    private final PdfFirmaService pdfFirmaService;
+    private final R2StorageService r2StorageService;
+    private final DocumentoClienteRepository documentoClienteRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
 
 
 
     @Autowired
-    public CitaServiceImpl(CitaRepository citaRepository, ClienteRepository clienteRepository, UsuarioRepository usuarioRepository, HorarioRepository horarioRepository, BloqueoAgendaRepository bloqueoAgendaRepository, CitaMapper citaMapper, BonoActivoRepository bonoActivoRepository, ConsumoBonoRepository consumoBonoRepository, WhatsAppService whatsAppService, AuditoriaServiceImpl auditoriaServiceImpl) {
+    public CitaServiceImpl(CitaRepository citaRepository, 
+                           ClienteRepository clienteRepository, 
+                           UsuarioRepository usuarioRepository, 
+                           HorarioRepository horarioRepository, 
+                           BloqueoAgendaRepository bloqueoAgendaRepository, 
+                           CitaMapper citaMapper, 
+                           BonoActivoRepository bonoActivoRepository, 
+                           ConsumoBonoRepository consumoBonoRepository, 
+                           WhatsAppService whatsAppService, 
+                           AuditoriaServiceImpl auditoriaServiceImpl, 
+                           PdfFirmaService pdfFirmaService,
+                           R2StorageService r2StorageService,
+                           DocumentoClienteRepository documentoClienteRepository,
+                           SimpMessagingTemplate messagingTemplate) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -53,6 +75,10 @@ public class CitaServiceImpl implements CitaService {
         this.consumoBonoRepository = consumoBonoRepository;
         this.whatsAppService = whatsAppService;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
+        this.pdfFirmaService = pdfFirmaService;
+        this.r2StorageService = r2StorageService;
+        this.documentoClienteRepository = documentoClienteRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Override
@@ -92,7 +118,7 @@ public class CitaServiceImpl implements CitaService {
                         nombreServicio
                 );
             } catch (Exception e) {
-                System.err.println("⚠ ALERTA: Cita creada pero falló el envío de WhatsApp: " + e.getMessage());
+                log.warn("ALERTA: Cita creada pero falló el envío de WhatsApp: {}", e.getMessage());
             }
         }
 
@@ -169,18 +195,31 @@ public class CitaServiceImpl implements CitaService {
 
             bonoAUtilizar = bono;
 
+        } else if (cita.getIdBonoPreasignado() != null) {
+            // Prioridad a la memoria de la cita
+            BonoActivo bonoMemory = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
+            if (bonoMemory != null && bonoMemory.getSesionesRestantes() > 0) {
+                bonoAUtilizar = bonoMemory;
+            } else {
+                // Si el de memoria ya no es válido, buscador normal
+                List<BonoActivo> bonosDisponibles = bonoActivoRepository.findBonosDisponiblesParaCliente(cliente.getIdCliente());
+                if (!bonosDisponibles.isEmpty()) bonoAUtilizar = bonosDisponibles.getFirst();
+            }
         } else {
             // Buscamos el bono más antiguo disponible (propio o de familia)
             List<BonoActivo> bonosDisponibles = bonoActivoRepository
                     .findBonosDisponiblesParaCliente(cliente.getIdCliente());
             if (!bonosDisponibles.isEmpty()) {
                 bonoAUtilizar = bonosDisponibles.getFirst();
-            }else {
+            } else {
                 throw new IllegalArgumentException("El cliente NO tiene bonos activos con saldo.");
             }
         }
 
         if (bonoAUtilizar != null) {
+            // Limpiar la pre-asignación ya que se va a consumir
+            cita.setIdBonoPreasignado(null);
+            
             int saldoAnterior = bonoAUtilizar.getSesionesRestantes();
             int nuevoSaldo = saldoAnterior - 1;
             bonoAUtilizar.setSesionesRestantes(nuevoSaldo);
@@ -277,14 +316,61 @@ public class CitaServiceImpl implements CitaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
         EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(nuevoEstado);
+
+        // Si cambia de COMPLETADA a otra cosa, limpiar firma y devolver bono
+        BonoActivo bonoAfectado = null;
+        if (estadoAnterior == EstadoCita.completada && nuevoEstado != EstadoCita.completada) {
+            limpiarFirmaYJustificante(cita);
+            bonoAfectado = devolverSesionBonoSiAplica(cita);
+        }
+
         Cita citaGuardada = citaRepository.save(cita);
+
+        // Si fue un cambio que afectó a la cartilla, regenerar (pasando el bono capturado)
+        if (estadoAnterior == EstadoCita.completada && nuevoEstado != EstadoCita.completada) {
+            actualizarJustificantesPostCambio(citaGuardada, bonoAfectado);
+        }
+
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.EDITAR,
                 "CITA",
                 idCita.toString(),
                 "Cambio de estado: " + estadoAnterior + " -> " + nuevoEstado
         );
-        return citaMapper.toDto(citaGuardada);
+        CitaDto dto = citaMapper.toDto(citaGuardada);
+        llenarInfoPago(citaGuardada, dto);
+        return dto;
+    }
+
+    private void limpiarFirmaYJustificante(Cita cita) {
+        cita.setFirmada(false);
+        cita.setFirmaBase64(null);
+        cita.setRutaJustificante(null);
+    }
+
+    private BonoActivo devolverSesionBonoSiAplica(Cita cita) {
+        var consumoOpt = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
+        if (consumoOpt.isPresent()) {
+            ConsumoBono consumo = consumoOpt.get();
+            BonoActivo bono = consumo.getBonoActivo();
+            
+            // Guardar memoria del bono pre-asignado
+            cita.setIdBonoPreasignado(bono.getIdBonoActivo());
+            
+            bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
+            BonoActivo bonoGuardado = bonoActivoRepository.save(bono);
+            consumoBonoRepository.deleteByCitaIdCita(cita.getIdCita());
+            cita.setConsumoBono(null);
+            
+            auditoriaServiceImpl.registrarAccion(
+                TipoAccion.EDITAR,
+                "BONO",
+                bono.getIdBonoActivo().toString(),
+                "Sesión devuelta (revertido) por cambio de estado en Cita ID: " + cita.getIdCita()
+            );
+            return bonoGuardado;
+        }
+        return null;
     }
 
     @Override
@@ -292,6 +378,8 @@ public class CitaServiceImpl implements CitaService {
     public CitaDto updateCita(Integer idCita, CitaRequestDto request) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+        
+        BonoActivo bonoAfectado = null;
 
         Usuario quiro = usuarioRepository.findById(request.getIdQuiropractico())
                 .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado"));
@@ -313,23 +401,23 @@ public class CitaServiceImpl implements CitaService {
 
         if (request.getEstado() != null) {
             try {
-                cita.setEstado(EstadoCita.valueOf(request.getEstado().toLowerCase()));
+                EstadoCita nuevoEst = EstadoCita.valueOf(request.getEstado().toLowerCase());
+                // Si cambia de COMPLETADA a otra cosa, limpiar firma y devolver bono
+                if (estadoAnterior == EstadoCita.completada && nuevoEst != EstadoCita.completada) {
+                    limpiarFirmaYJustificante(cita);
+                    bonoAfectado = devolverSesionBonoSiAplica(cita);
+                }
+                cita.setEstado(nuevoEst);
             } catch (IllegalArgumentException e) {
-                System.out.println("Error"+ e.getMessage());
+                log.error("Error al establecer nuevo estado: {}", e.getMessage());
             }
         }
 
         Cita actualizada = citaRepository.save(cita);
 
-        // Si la cita pasa a 'cancelada' desde otro estado, devolver sesión del bono si aplica
-        if (actualizada.getEstado() == EstadoCita.cancelada && estadoAnterior != EstadoCita.cancelada) {
-            var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
-            if (consumoOpt.isPresent()) {
-                BonoActivo bono = consumoOpt.get().getBonoActivo();
-                bono.setSesionesRestantes(bono.getSesionesRestantes() + 1);
-                bonoActivoRepository.save(bono);
-                consumoBonoRepository.deleteByCitaIdCita(idCita); // JPQL directo, evita conflicto CascadeType.ALL
-            }
+        // Si fue una reversión de COMPLETADA, regenerar cartilla (pasando el bono capturado)
+        if (estadoAnterior == EstadoCita.completada && actualizada.getEstado() != EstadoCita.completada) {
+            actualizarJustificantesPostCambio(actualizada, bonoAfectado);
         }
 
         auditoriaServiceImpl.registrarAccion(
@@ -338,7 +426,9 @@ public class CitaServiceImpl implements CitaService {
                 idCita.toString(),
                 "Edición de datos. " + cambios + "Nuevas notas: " + request.getNotasRecepcion()
         );
-        return citaMapper.toDto(actualizada);
+        CitaDto dto = citaMapper.toDto(actualizada);
+        llenarInfoPago(actualizada, dto);
+        return dto;
     }
 
     @Override
@@ -479,8 +569,367 @@ public class CitaServiceImpl implements CitaService {
                 // Es pagado por un familiar
                 dto.setIdBonoCliente(bono.getCliente().getIdCliente());
             }
+        } else if (cita.getIdBonoPreasignado() != null) {
+            // Mostrar bono pre-asignado (memoria) con el mismo formato que un consumo real
+            BonoActivo bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
+            if (bono != null) {
+                String nombreBono = bono.getServicioComprado().getNombreServicio();
+                String infoSaldo = " / quedan " + bono.getSesionesRestantes();
+
+                if (bono.getCliente().getIdCliente().equals(cita.getCliente().getIdCliente())) {
+                    dto.setInfoPago("Bono Propio (" + nombreBono + infoSaldo + ")");
+                } else {
+                    dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
+                }
+                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
+            } else {
+                dto.setInfoPago("Pago Directo / Sesión Suelta");
+            }
         } else {
             dto.setInfoPago("Pago Directo / Sesión Suelta");
         }
+    }
+    @Override
+    @Transactional
+    public CitaDto procesarFirma(Integer idCita, String base64Firma) {
+        Cita cita = citaRepository.findById(idCita)
+                .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+
+        // 1. Guardar la firma original en la cita (Base de Datos)
+        cita.setFirmaBase64(base64Firma);
+        cita.setEstado(EstadoCita.completada);
+        cita.setFirmada(true);
+
+        Cita citaGuardada = citaRepository.save(cita);
+
+        // 2. Si la cita fue revertida y tiene bono pre-asignado, re-consumir la sesión
+        if (citaGuardada.getIdBonoPreasignado() != null && consumoBonoRepository.findByCitaIdCita(idCita).isEmpty()) {
+            BonoActivo bono = bonoActivoRepository.findById(citaGuardada.getIdBonoPreasignado()).orElse(null);
+            if (bono != null && bono.getSesionesRestantes() > 0) {
+                int saldoAnterior = bono.getSesionesRestantes();
+                int nuevoSaldo = saldoAnterior - 1;
+                bono.setSesionesRestantes(nuevoSaldo);
+                BonoActivo bonoGuardado = bonoActivoRepository.save(bono);
+
+                ConsumoBono consumo = new ConsumoBono();
+                consumo.setCita(citaGuardada);
+                consumo.setBonoActivo(bonoGuardado);
+                consumo.setSesionesRestantesSnapshot(nuevoSaldo);
+                consumoBonoRepository.save(consumo);
+
+                citaGuardada.setIdBonoPreasignado(null);
+                citaGuardada = citaRepository.save(citaGuardada);
+
+                auditoriaServiceImpl.registrarAccion(
+                    TipoAccion.CONSUMO,
+                    "BONO",
+                    bonoGuardado.getIdBonoActivo().toString(),
+                    "Sesión re-consumida al firmar Cita ID: " + idCita +
+                        ". Saldo: " + saldoAnterior + " -> " + nuevoSaldo
+                );
+            }
+        }
+        
+        // 3. Regenerar/Generar PDF (Lógica centralizada) - null porque se busca solo
+        actualizarJustificantesPostCambio(citaGuardada, null);
+
+        auditoriaServiceImpl.registrarAccion(
+                TipoAccion.EDITAR,
+                "CITA",
+                idCita.toString(),
+                "Firma procesada. Cita marcada como COMPLETADA."
+        );
+
+        CitaDto dto = citaMapper.toDto(citaGuardada);
+        llenarInfoPago(citaGuardada, dto);
+
+        // Notificar al WebSocket para que el frontend (CitasView/Dialog) se actualice solo
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("action", "CITA_FIRMADA");
+        payload.put("idCita", idCita);
+        messagingTemplate.convertAndSend("/topic/citas", payload);
+
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public String generarBorradorFirma(Integer idCita) {
+        Cita cita = citaRepository.findById(idCita)
+                .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+
+        java.util.List<PdfFirmaService.SesionInfo> sesiones = new ArrayList<>();
+        String nombreDocumento;
+        BonoActivo bono = null;
+
+        var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
+        
+        if (consumoOpt.isPresent()) {
+            bono = consumoOpt.get().getBonoActivo();
+            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bono.getIdBonoActivo());
+            
+            for (int i = 0; i < bono.getSesionesTotales(); i++) {
+                if (i < consumosDelBono.size()) {
+                    ConsumoBono cb = consumosDelBono.get(i);
+                    Cita c = cb.getCita();
+                    String firmaLimpia = (c.getFirmaBase64() != null) ? PdfFirmaService.limpiarBase64(c.getFirmaBase64()) : null;
+                    
+                    String rangoHora = c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                                       c.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                    sesiones.add(new PdfFirmaService.SesionInfo(
+                        i + 1,
+                        c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        rangoHora,
+                        firmaLimpia
+                    ));
+                } else {
+                    sesiones.add(new PdfFirmaService.SesionInfo(i + 1, null, null, null));
+                }
+            }
+            
+            String nombreS = (bono.getServicioComprado() != null && bono.getServicioComprado().getNombreServicio() != null) 
+                             ? bono.getServicioComprado().getNombreServicio() 
+                             : "Bono";
+            nombreDocumento = nombreS.replaceAll("\\s+", "_") + "_" + bono.getIdBonoActivo();
+        } else if (cita.getIdBonoPreasignado() != null) {
+            // Cita revertida: no tiene consumo pero sí bono pre-asignado
+            bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
+            
+            if (bono != null) {
+                List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bono.getIdBonoActivo());
+                
+                // Añadir las sesiones ya consumidas del bono
+                int idx = 0;
+                for (; idx < consumosDelBono.size(); idx++) {
+                    ConsumoBono cb = consumosDelBono.get(idx);
+                    Cita c = cb.getCita();
+                    String firmaLimpia = (c.getFirmaBase64() != null) ? PdfFirmaService.limpiarBase64(c.getFirmaBase64()) : null;
+                    
+                    String rangoHora = c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                                       c.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                    sesiones.add(new PdfFirmaService.SesionInfo(
+                        idx + 1,
+                        c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        rangoHora,
+                        firmaLimpia
+                    ));
+                }
+                
+                // Añadir la cita actual como siguiente sesión (borrador sin firma)
+                String rangoHoraActual = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                                         cita.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+                sesiones.add(new PdfFirmaService.SesionInfo(
+                    idx + 1,
+                    cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    rangoHoraActual,
+                    null
+                ));
+                idx++;
+                
+                // Rellenar sesiones vacías restantes
+                for (; idx < bono.getSesionesTotales(); idx++) {
+                    sesiones.add(new PdfFirmaService.SesionInfo(idx + 1, null, null, null));
+                }
+                
+                String nombreS = (bono.getServicioComprado() != null && bono.getServicioComprado().getNombreServicio() != null) 
+                                 ? bono.getServicioComprado().getNombreServicio() 
+                                 : "Bono";
+                nombreDocumento = nombreS.replaceAll("\\s+", "_") + "_" + bono.getIdBonoActivo();
+            } else {
+                // Bono pre-asignado ya no existe, tratar como sesión suelta
+                String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                                   cita.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+                sesiones.add(new PdfFirmaService.SesionInfo(
+                    1,
+                    cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    rangoHora,
+                    null
+                ));
+                nombreDocumento = "Sesion_Suelta_" + idCita;
+            }
+        } else {
+            String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                               cita.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+            
+            sesiones.add(new PdfFirmaService.SesionInfo(
+                1,
+                cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                rangoHora,
+                null // Borrador sin firma
+            ));
+            nombreDocumento = "Sesion_Suelta_" + idCita;
+        }
+
+        byte[] pdfBytes = pdfFirmaService.generarPdfBono(
+            cita.getCliente().getNombre() + " " + cita.getCliente().getApellidos(),
+            cita.getCliente().getIdCliente().toString(),
+            cita.getQuiropractico().getNombreCompleto(),
+            (bono != null && bono.getServicioComprado() != null) ? bono.getServicioComprado().getNombreServicio() : "Sesión Suelta",
+            bono != null ? "#B-" + bono.getIdBonoActivo() : "S-Digital",
+            bono != null && bono.getFechaCaducidad() != null ? bono.getFechaCaducidad().toString() : "Sin caducidad",
+            sesiones
+        );
+
+        String pathBorrador = String.format("clientes/%d/borradores/%s_BORRADOR.pdf", 
+                                            cita.getCliente().getIdCliente(), nombreDocumento);
+        
+        r2StorageService.storeBytes(pdfBytes, pathBorrador, "application/pdf");
+        
+        // Retornamos la URL prefirmada para el Kiosco
+        return r2StorageService.generatePresignedUrl(pathBorrador);
+    }
+
+    private void registrarDocumentoEnFicha(Cita cita, String path, String nombre, Long tamanyo) {
+        var docExistente = documentoClienteRepository.findByPathArchivo(path);
+        
+        DocumentoCliente doc;
+        if (docExistente.isPresent()) {
+            doc = docExistente.get();
+        } else {
+            doc = new DocumentoCliente();
+            doc.setCliente(cita.getCliente());
+            doc.setPathArchivo(path);
+            doc.setTipoDocumento(com.example.quiropracticoapi.model.enums.TipoDocumento.JUSTIFICANTE_ASISTENCIA);
+            doc.setMimeType("application/pdf");
+            doc.setFechaSubida(LocalDateTime.now());
+        }
+        
+        doc.setNombreOriginal(nombre + ".pdf");
+        doc.setTamanyoBytes(tamanyo);
+        doc.setEstadoSubida(com.example.quiropracticoapi.model.enums.EstadoSubida.ACTIVO);
+        doc.setCita(cita);
+        doc.setActivo(true);
+        
+        documentoClienteRepository.save(doc);
+    }
+
+    private void actualizarJustificantesPostCambio(Cita cita, BonoActivo bonoForzado) {
+        // Preparar datos para la cartilla dinámica
+        java.util.List<PdfFirmaService.SesionInfo> sesiones = new ArrayList<>();
+        String pathR2;
+        String nombreDocumento;
+        BonoActivo bonoAUsar = bonoForzado;
+
+        if (bonoAUsar == null) {
+            var consumption = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
+            if (consumption.isPresent()) {
+                bonoAUsar = consumption.get().getBonoActivo();
+            }
+        }
+
+        String carpetaJustificantes = String.format("clientes/%d/justificantes", cita.getCliente().getIdCliente());
+        
+        if (bonoAUsar != null) {
+            // Buscar todas las citas que han consumido este bono para el historial
+            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bonoAUsar.getIdBonoActivo());
+            
+            String nombreS = (bonoAUsar.getServicioComprado() != null && bonoAUsar.getServicioComprado().getNombreServicio() != null) 
+                             ? bonoAUsar.getServicioComprado().getNombreServicio() 
+                             : "Bono";
+            String nombreServicioClean = nombreS.replaceAll("\\s+", "_");
+            pathR2 = String.format("%s/%s_Bono_%d.pdf", carpetaJustificantes, nombreServicioClean, bonoAUsar.getIdBonoActivo());
+            nombreDocumento = nombreServicioClean + "_" + bonoAUsar.getIdBonoActivo();
+
+            // Si no hay consumos (porque acabamos de cancelar la única cita), borramos el PDF de R2 si existe
+            if (consumosDelBono.isEmpty()) {
+                try {
+                    if (r2StorageService.exists(pathR2)) {
+                        r2StorageService.delete(pathR2);
+                        documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
+                            doc.setActivo(false);
+                            doc.setEstadoSubida(EstadoSubida.ELIMINADO);
+                            documentoClienteRepository.save(doc);
+                        });
+                    }
+                } catch (Exception e) {
+                    auditoriaServiceImpl.registrarAccion(
+                        TipoAccion.ERROR,
+                        "DOCUMENTO",
+                        cita.getIdCita().toString(),
+                        "Fallo al eliminar PDF de S3/R2 (" + pathR2 + "): " + e.getMessage()
+                    );
+                }
+                return;
+            }
+
+            for (int i = 0; i < bonoAUsar.getSesionesTotales(); i++) {
+                if (i < consumosDelBono.size()) {
+                    ConsumoBono cb = consumosDelBono.get(i);
+                    Cita c = cb.getCita();
+                    String firmaLimpia = (c.getFirmaBase64() != null) ? PdfFirmaService.limpiarBase64(c.getFirmaBase64()) : null;
+                    
+                    String rangoHora = c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                                       c.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+
+                    sesiones.add(new PdfFirmaService.SesionInfo(
+                        i + 1,
+                        c.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                        rangoHora,
+                        firmaLimpia
+                    ));
+                } else {
+                    sesiones.add(new PdfFirmaService.SesionInfo(i + 1, null, null, null));
+                }
+            }
+        } else {
+            // Caso de Sesión Suelta
+            if (cita.getEstado() != EstadoCita.completada) {
+                pathR2 = String.format("%s/Justificante_Sesion_%d.pdf", carpetaJustificantes, cita.getIdCita());
+                try {
+                    if (r2StorageService.exists(pathR2)) {
+                        r2StorageService.delete(pathR2);
+                        documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
+                            doc.setActivo(false);
+                            doc.setEstadoSubida(EstadoSubida.ELIMINADO);
+                            documentoClienteRepository.save(doc);
+                        });
+                    }
+                } catch (Exception e) {
+                    auditoriaServiceImpl.registrarAccion(
+                        TipoAccion.ERROR,
+                        "DOCUMENTO",
+                        cita.getIdCita().toString(),
+                        "Fallo al eliminar PDF de Sesion Suelta en S3/R2 (" + pathR2 + "): " + e.getMessage()
+                    );
+                }
+                return;
+            }
+
+            String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
+                               cita.getFechaHoraFin().format(DateTimeFormatter.ofPattern("HH:mm"));
+            
+            sesiones.add(new PdfFirmaService.SesionInfo(
+                1,
+                cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                rangoHora,
+                (cita.getFirmaBase64() != null) ? PdfFirmaService.limpiarBase64(cita.getFirmaBase64()) : null
+            ));
+            pathR2 = String.format("%s/Justificante_Sesion_%d.pdf", carpetaJustificantes, cita.getIdCita());
+            nombreDocumento = "Sesion_Suelta_" + cita.getIdCita();
+        }
+
+        // Generar PDF en memoria
+        byte[] pdfBytes = pdfFirmaService.generarPdfBono(
+            cita.getCliente().getNombre() + " " + cita.getCliente().getApellidos(),
+            cita.getCliente().getIdCliente().toString(),
+            cita.getQuiropractico().getNombreCompleto(),
+            (bonoAUsar != null && bonoAUsar.getServicioComprado() != null) ? bonoAUsar.getServicioComprado().getNombreServicio() : "Sesión Suelta",
+            bonoAUsar != null ? "#B-" + bonoAUsar.getIdBonoActivo() : "S-Digital",
+            bonoAUsar != null && bonoAUsar.getFechaCaducidad() != null ? bonoAUsar.getFechaCaducidad().toString() : "Sin caducidad",
+            sesiones
+        );
+
+        r2StorageService.storeBytes(pdfBytes, pathR2, "application/pdf");
+
+        // Actualizar ruta en la cita solo si el estado es COMPLETADA
+        // (Si se regeneró por una reversión, la cita actual ya no tiene ruta justificante)
+        if (cita.getEstado() == EstadoCita.completada) {
+            cita.setRutaJustificante(pathR2);
+            citaRepository.save(cita);
+        }
+
+        registrarDocumentoEnFicha(cita, pathR2, nombreDocumento, (long) pdfBytes.length);
     }
 }

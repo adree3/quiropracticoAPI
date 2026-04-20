@@ -42,6 +42,12 @@ public class DocumentoController {
         return ResponseEntity.ok(documentoService.listarDocumentosCliente(idCliente));
     }
 
+    @Operation(summary = "Listar documentos de una cita", description = "Devuelve metadatos de los archivos asociados a una cita.")
+    @GetMapping("/citas/{idCita}")
+    public ResponseEntity<List<DocumentoDto>> listarDocumentosCita(@PathVariable Integer idCita) {
+        return ResponseEntity.ok(documentoService.listarDocumentosCita(idCita));
+    }
+
     @Operation(summary = "Listar documentos eliminados", description = "Devuelve la bandeja de la papelera de un cliente.")
     @GetMapping("/clientes/{idCliente}/papelera")
     public ResponseEntity<List<DocumentoDto>> listarDocumentosEliminados(@PathVariable Integer idCliente) {

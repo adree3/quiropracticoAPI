@@ -23,6 +23,11 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
      * Devuelve los documentos inactivos (en la papelera) de un cliente, ordenados por fecha descendente de borrado.
      */
     List<DocumentoCliente> findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(Integer idCliente);
+    
+    /**
+     * Devuelve los documentos activos vinculados a una cita específica.
+     */
+    List<DocumentoCliente> findByCitaIdCitaAndActivoTrueOrderByFechaSubidaDesc(Integer idCita);
 
     /**
      * Busca registros atascados en PENDIENTE más antiguos que un tiempo dado.
@@ -44,4 +49,9 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
            "AND d.tipoDocumento = :tipo AND d.estadoSubida = 'ACTIVO' AND d.activo = true")
     boolean existsFirmaActivaParaCita(@Param("idCita") Integer idCita,
                                       @Param("tipo") TipoDocumento tipo);
+
+    /**
+     * Busca un documento por su ruta exacta en R2.
+     */
+    java.util.Optional<DocumentoCliente> findByPathArchivo(String pathArchivo);
 }
