@@ -111,23 +111,6 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
     );
 
     /**
-     * Cuenta las citas en un rango
-     * @param inicio fecha inicio
-     * @param fin fecha fin
-     * @return citas sumadas
-     */
-    long countByFechaHoraInicioBetween(LocalDateTime inicio, LocalDateTime fin);
-
-    /**
-     * Cuenta las citas en un rango y en un estado definido
-     * @param inicio fecha inicio
-     * @param fin fecha fin
-     * @param estado estado de la cita
-     * @return citas sumadas
-     */
-    long countByFechaHoraInicioBetweenAndEstado(LocalDateTime inicio, LocalDateTime fin, EstadoCita estado);
-
-    /**
      * Busca citas futuras que tengan cobrado con el bono del propietario
      * @param pacienteId identificador del paciente
      * @param propietarioId identificardor del propietario del bono

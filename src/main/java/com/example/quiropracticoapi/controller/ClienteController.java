@@ -94,10 +94,9 @@ public class ClienteController {
     @PutMapping("/{id}")
     public ResponseEntity<ClienteDto> updateCliente(
             @PathVariable Integer id,
-            @Valid @RequestBody ClienteRequestDto clienteRequestDto,
-            @RequestParam(required = false, defaultValue = "false") boolean undo) {
+            @Valid @RequestBody ClienteRequestDto clienteRequestDto){
 
-        ClienteDto clienteActualizado = clienteService.updateCliente(id, clienteRequestDto, undo);
+        ClienteDto clienteActualizado = clienteService.updateCliente(id, clienteRequestDto);
         return ResponseEntity.ok(clienteActualizado);
     }
 
@@ -108,10 +107,9 @@ public class ClienteController {
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCliente(
-            @PathVariable Integer id,
-            @RequestParam(required = false, defaultValue = "false") boolean undo
+            @PathVariable Integer id
     ) {
-        clienteService.deleteCliente(id, undo);
+        clienteService.deleteCliente(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -120,11 +118,9 @@ public class ClienteController {
     public ResponseEntity<Void> agregarFamiliar(
             @PathVariable Integer idPropietario,
             @RequestParam Integer idBeneficiario,
-            @RequestParam String relacion,
-            @RequestParam(required = false, defaultValue = "false") boolean undo,
-            @RequestParam(required = false) List<Integer> idsCitasARestaurar
+            @RequestParam String relacion
     ) {
-        clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion, undo, idsCitasARestaurar);
+        clienteService.agregarFamiliar(idPropietario, idBeneficiario, relacion);
         return ResponseEntity.ok().build();
     }
 
@@ -189,10 +185,9 @@ public class ClienteController {
      */
     @PutMapping("/{id}/recuperar")
     public ResponseEntity<Void> recoverCliente(
-            @PathVariable Integer id,
-            @RequestParam(required = false, defaultValue = "false") boolean undo
+            @PathVariable Integer id
     ) {
-        clienteService.recoverCliente(id, undo);
+        clienteService.recoverCliente(id);
         return ResponseEntity.ok().build();
     }
 

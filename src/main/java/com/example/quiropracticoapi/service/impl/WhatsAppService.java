@@ -5,11 +5,13 @@ import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class WhatsAppService {
     @Value("${twilio.account.sid}")
@@ -68,7 +70,7 @@ public class WhatsAppService {
                     nombrePaciente,
                     "Mensaje enviado a " + telefonoDestino + ". SID: " + message.getSid()
             );
-            System.out.println("Mensaje enviado con SID: " + message.getSid());
+            log.info("Mensaje enviado con SID: {}", message.getSid());
 
         } catch (Exception e) {
             auditoriaServiceImpl.registrarAccion(
@@ -78,7 +80,7 @@ public class WhatsAppService {
                     "FALLO de envío: " + e.getMessage()
             );
             // Importante: Que un fallo en WhatsApp no tumbe tu servidor
-            System.err.println("Error enviando WhatsApp: " + e.getMessage());
+            log.error("Error enviando WhatsApp: {}", e.getMessage());
         }
     }
 }

@@ -53,7 +53,7 @@ public class FamiliarServiceImpl implements FamiliarService {
 
     @Override
     @Transactional
-    public void desvincularFamiliar(Integer idGrupo, List<Integer> idsCitasACancelar, boolean undo) {
+    public void desvincularFamiliar(Integer idGrupo, List<Integer> idsCitasACancelar) {
         GrupoFamiliar grupo = grupoFamiliarRepository.findById(idGrupo)
                 .orElseThrow(() -> new RuntimeException("Relación familiar no encontrada"));
         String nombrePropietario = grupo.getPropietario().getNombre();
@@ -93,13 +93,10 @@ public class FamiliarServiceImpl implements FamiliarService {
         // 2. Borrar relación familiar
         grupoFamiliarRepository.deleteById(idGrupo);
 
-        TipoAccion tipoAccion = undo ? TipoAccion.DESHACER : TipoAccion.ELIMINAR_FISICO;
-        String detalle = undo
-                ? "Deshacer vinculación. Relación eliminada entre: " + nombrePropietario + " y " + nombreBeneficiario
-                : "Desvinculación familiar. Propietario: " + nombrePropietario + " ya no comparte bonos con Beneficiario: " + nombreBeneficiario;
+        String detalle = "Desvinculación familiar. Propietario: " + nombrePropietario + " ya no comparte bonos con Beneficiario: " + nombreBeneficiario;
 
         auditoriaServiceImpl.registrarAccion(
-                tipoAccion,
+                TipoAccion.ELIMINAR_FISICO,
                 "GRUPO_FAMILIAR",
                 idGrupo.toString(),
                 detalle

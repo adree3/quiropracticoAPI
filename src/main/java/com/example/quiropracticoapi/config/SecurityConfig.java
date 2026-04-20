@@ -66,6 +66,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/stats/**").hasAnyAuthority("ROLE_admin", "ROLE_quiropráctico")
                         .requestMatchers("/api/auth/**").hasAnyAuthority("ROLE_admin", "ROLE_quiropráctico")
                         .requestMatchers("/api/auditoria/**").hasAnyAuthority("ROLE_admin", "ROLE_quiropráctico")
+                        .requestMatchers("/ws-kiosk/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

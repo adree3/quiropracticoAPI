@@ -7,5 +7,5 @@ import java.util.List;
 public interface FamiliarService {
     List<CitaConflictoDto> obtenerCitasConflictivas(Integer idFamiliar);
 
-    void desvincularFamiliar(Integer idGrupo, List<Integer> idsCitasACancelar, boolean undo);
+    void desvincularFamiliar(Integer idGrupo, List<Integer> idsCitasACancelar);
 }

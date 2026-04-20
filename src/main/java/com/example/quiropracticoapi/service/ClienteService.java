@@ -34,19 +34,17 @@ public interface ClienteService {
      * Actualiza un cliente existente.
      * @param id El ID del cliente a actualizar.
      * @param clienteRequestDto El objeto con los nuevos datos.
-     * @param undo Indica si es una accion de deshacer.
      * @return El cliente actualizado.
      * @throws com.example.quiropracticoapi.exception.ResourceNotFoundException si no se encuentra.
      */
-    ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto, boolean undo);
+    ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto);
 
     /**
      * Elimina un cliente por su ID.
      * @param id El ID del cliente a eliminar.
-     * @param undo Indica si es una accion de deshacer.
      * @throws com.example.quiropracticoapi.exception.ResourceNotFoundException si no se encuentra.
      */
-    void deleteCliente(Integer id, boolean undo);
+    void deleteCliente(Integer id);
 
     /**
      * Busca clientes cuyos apellidos contengan el textoBuscado.
@@ -84,14 +82,13 @@ public interface ClienteService {
      * @param idBeneficiario Quien podrá usarlos.
      * @param relacion Texto descriptivo (ej. "Hijo", "Pareja").
      */
-    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion, boolean undo, List<Integer> idsCitasARestaurar);
+    void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion);
 
     /**
      * Cambia el cliente a activo
      * @param id identificador cliente
-     * @param undo Indica si es una accion de deshacer.
      */
-    void recoverCliente(Integer id, boolean undo);
+    void recoverCliente(Integer id);
 
     /**
      * Elimina a un familiar.

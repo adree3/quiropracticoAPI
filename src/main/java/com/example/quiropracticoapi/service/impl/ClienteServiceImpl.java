@@ -93,7 +93,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto, boolean undo) {
+    public ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto) {
         Cliente clienteExistente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + id));
 
@@ -101,13 +101,10 @@ public class ClienteServiceImpl implements ClienteService {
         clienteMapper.updateClienteFromDto(clienteRequestDto, clienteExistente);
         Cliente clienteActualizado = clienteRepository.save(clienteExistente);
         
-        TipoAccion tipoAccion = undo ? TipoAccion.DESHACER : TipoAccion.EDITAR;
-        String detalle = undo 
-            ? "Deshacer edición. Restaurado a: " + clienteActualizado.getNombre() + " " + clienteActualizado.getApellidos()
-            : "Actualización de datos personales. Nombre: " + clienteActualizado.getNombre() + " " + clienteActualizado.getApellidos();
+        String detalle = "Actualización de datos personales. Nombre: " + clienteActualizado.getNombre() + " " + clienteActualizado.getApellidos();
 
         auditoriaServiceImpl.registrarAccion(
-                tipoAccion,
+                TipoAccion.EDITAR,
                 "CLIENTE",
                 id.toString(),
                 detalle
@@ -117,20 +114,17 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public void deleteCliente(Integer id, boolean undo) {
+    public void deleteCliente(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
         cliente.setActivo(false);
         clienteRepository.save(cliente);
 
-        TipoAccion tipoAccion = undo ? TipoAccion.DESHACER : TipoAccion.ELIMINAR_LOGICO;
-        String detalle = undo
-                ? "Deshacer reactivación. Cliente desactivado nuevamente: " + cliente.getNombre() + " " + cliente.getApellidos()
-                : "Paciente desactivado (enviado a papelera): " + cliente.getNombre() + " " + cliente.getApellidos();
+        String detalle = "Paciente desactivado (enviado a papelera): " + cliente.getNombre() + " " + cliente.getApellidos();
 
         auditoriaServiceImpl.registrarAccion(
-                tipoAccion,
+                TipoAccion.ELIMINAR_LOGICO,
                 "CLIENTE",
                 id.toString(),
                 detalle
@@ -232,7 +226,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion, boolean undo, List<Integer> idsCitasARestaurar) {
+    public void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion) {
         if (idPropietario.equals(idBeneficiario)) {
             throw new IllegalArgumentException("Un cliente no puede ser familiar de sí mismo.");
         }
@@ -252,54 +246,10 @@ public class ClienteServiceImpl implements ClienteService {
 
         GrupoFamiliar guardado = grupoFamiliarRepository.save(grupo);
 
-        // Lógica de restauración de citas (Undo)
-        if (undo && idsCitasARestaurar != null && !idsCitasARestaurar.isEmpty()) {
-            List<Cita> citas = citaRepository.findAllById(idsCitasARestaurar);
-            int restauradasCount = 0;
-
-            for (Cita cita : citas) {
-                if (cita.getEstado() == EstadoCita.cancelada) {
-                   cita.setEstado(EstadoCita.programada);
-                   // Limpiar o anexar nota de restauración
-                   String notaRestauracion = "Cita restaurada por deshacer desvinculación.";
-                   if (cita.getNotasRecepcion() != null) {
-                       cita.setNotasRecepcion(cita.getNotasRecepcion() + "\n" + notaRestauracion);
-                   } else {
-                       cita.setNotasRecepcion(notaRestauracion);
-                   }
-                   
-                   // Volver a consumir sesión si tenía bono asociado
-                   if (cita.getConsumoBono() != null) {
-                       Integer idBono = cita.getConsumoBono().getBonoActivo().getIdBonoActivo();
-                        try {
-                            bonoServiceImpl.consumirSesion(idBono, cita.getIdCita());
-                        } catch (Exception e) {
-                           // Si falla el consumo (ej. bono caducado o sin saldo), podríamos lanzar exepción o loguear
-                           throw new RuntimeException("Error al restaurar cita " + cita.getIdCita() + ": " + e.getMessage());
-                       }
-                   }
-                   restauradasCount++;
-                }
-            }
-            citaRepository.saveAll(citas);
-            if (restauradasCount > 0) {
-                 auditoriaServiceImpl.registrarAccion(
-                        TipoAccion.EDITAR,
-                        "CITA",
-                        "VARIAS (" + restauradasCount + ")",
-                        "Restauración de " + restauradasCount + " citas de " + beneficiario.getNombre() +
-                                " y consumo de sesiones del bono de " + propietario.getNombre()
-                );
-            }
-        }
-
-        TipoAccion tipoAccion = undo ? TipoAccion.DESHACER : TipoAccion.CREAR;
-        String detalle = undo
-                ? "Deshacer desvinculación. Relación restaurada: " + propietario.getNombre() + " -> " + beneficiario.getNombre()
-                : "Relación creada: " + propietario.getNombre() + " es propietario de -> " + beneficiario.getNombre() + " (Relación: " + relacion + ")";
+        String detalle = "Relación creada: " + propietario.getNombre() + " es propietario de -> " + beneficiario.getNombre() + " (Relación: " + relacion + ")";
 
         auditoriaServiceImpl.registrarAccion(
-                tipoAccion,
+                TipoAccion.CREAR,
                 "GRUPO_FAMILIAR",
                 guardado.getIdGrupo().toString(),
                 detalle
@@ -307,20 +257,17 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public void recoverCliente(Integer id, boolean undo) {
+    public void recoverCliente(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
         cliente.setActivo(true);
         clienteRepository.save(cliente);
         
-        TipoAccion tipoAccion = undo ? TipoAccion.DESHACER : TipoAccion.REACTIVAR;
-        String detalle = undo
-                ? "Deshacer eliminación. Cliente reactivado: " + cliente.getNombre() + " " + cliente.getApellidos()
-                : "Paciente reactivado/restaurado: " + cliente.getNombre() + " " + cliente.getApellidos();
+        String detalle = "Paciente reactivado: " + cliente.getNombre() + " " + cliente.getApellidos();
 
         auditoriaServiceImpl.registrarAccion(
-                tipoAccion,
+                TipoAccion.REACTIVAR,
                 "CLIENTE",
                 id.toString(),
                 detalle

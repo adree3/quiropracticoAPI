@@ -37,7 +37,7 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
-    public BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force, boolean undo) {
+    public BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force) {
         if (dto.getFechaFin().isBefore(dto.getFechaInicio())) {
             throw new IllegalArgumentException("La fecha fin no puede ser anterior a la de inicio.");
         }
@@ -134,14 +134,9 @@ public class AgendaServiceImpl implements AgendaService {
         }
 
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
-        TipoAccion tipo = TipoAccion.CREAR;
         String detalle = "Afectado: " + afectado + ". Motivo: " + guardado.getMotivo();
-        if (undo) {
-            tipo = TipoAccion.DESHACER;
-            detalle = "[UNDO] " + detalle;
-        }
         auditoriaServiceImpl.registrarAccion(
-                tipo, "BLOQUEO_AGENDA", guardado.getIdBloqueo().toString(),
+                TipoAccion.CREAR, "BLOQUEO_AGENDA", guardado.getIdBloqueo().toString(),
                  detalle+ " (" + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() + ")"
         );
         return mapBloqueoToDto(guardado);
@@ -156,29 +151,23 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
-    public void borrarBloqueo(Integer id, boolean undo) {
+    public void borrarBloqueo(Integer id) {
         BloqueoAgenda b = bloqueoAgendaRepository.findById(id).orElse(null);
         bloqueoAgendaRepository.deleteById(id);
         if (b != null) {
             String afectado = (b.getUsuario() != null) ?  b.getUsuario().getUsername() : "CLÍNICA";
-            TipoAccion tipo = TipoAccion.ELIMINAR_FISICO;
-            String mensaje = "Bloqueo eliminado";
-            if (undo) {
-                tipo = TipoAccion.DESHACER;
-                mensaje = "[UNDO] " + mensaje + " por error";
-            }
             auditoriaServiceImpl.registrarAccion(
-                    tipo,
+                    TipoAccion.ELIMINAR_FISICO,
                     "BLOQUEO_AGENDA",
                     id.toString(),
-                    mensaje+ ": " + afectado + ". Motivo original: " + b.getMotivo() +
+                    "Bloqueo eliminado: " + afectado + ". Motivo original: " + b.getMotivo() +
                             ". Fechas: " + b.getFechaHoraInicio() + " - " + b.getFechaHoraFin()
             );
         }
     }
 
     @Override
-    public BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto, boolean undo) {
+    public BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto) {
         BloqueoAgenda bloqueo = bloqueoAgendaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bloqueo no encontrado"));
 
@@ -211,19 +200,11 @@ public class AgendaServiceImpl implements AgendaService {
         bloqueo.setMotivo(dto.getMotivo());
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
 
-        TipoAccion tipo = TipoAccion.EDITAR;
-        String mensaje = "Bloqueo actualizado. " + detallesCambio;
-
-        if (undo) {
-            tipo = TipoAccion.DESHACER;
-            mensaje = "[UNDO] Se restauraron los valores anteriores " + detallesCambio;
-        }
         auditoriaServiceImpl.registrarAccion(
-                tipo,
+                TipoAccion.EDITAR,
                 "BLOQUEO_AGENDA",
                 guardado.getIdBloqueo().toString(),
-                mensaje+ " (" + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() +
-                        ")"
+                "Bloqueo actualizado. " + detallesCambio + " (" + guardado.getFechaHoraInicio() + " - " + guardado.getFechaHoraFin() + ")"
         );
         return mapBloqueoToDto(guardado);
     }

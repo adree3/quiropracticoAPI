@@ -53,8 +53,6 @@ public class AuditoriaServiceImpl {
             try {
                 if (accionStr.equalsIgnoreCase("ELIMINAR")) {
                     accionesFiltro = Arrays.asList(TipoAccion.ELIMINAR_FISICO, TipoAccion.ELIMINAR_LOGICO);
-                } else if (accionStr.equalsIgnoreCase("DESHACER")) {
-                    accionesFiltro = Collections.singletonList(TipoAccion.DESHACER);
                 } else {
                     accionesFiltro = Collections.singletonList(TipoAccion.valueOf(accionStr.toUpperCase()));
                 }

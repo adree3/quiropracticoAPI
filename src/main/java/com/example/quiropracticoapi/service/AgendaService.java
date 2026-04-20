@@ -6,11 +6,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface AgendaService {
-    BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force, boolean undo);
+    BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force);
 
     List<BloqueoAgendaDto> getAllBloqueos();
 
-    void borrarBloqueo(Integer id, boolean undo);
+    void borrarBloqueo(Integer id);
 
-    BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto, boolean undo);
+    BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto);
 }

@@ -97,14 +97,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     Page<Cliente> findByActivo(Boolean activo, Pageable pageable);
 
     /**
-     * Cuenta los clientes nuevos este mes
-     * @param inicio fecha inicio
-     * @param fin fecha fin
-     * @return numero de clientes nuevos
-     */
-    long countByFechaAltaBetween(LocalDateTime inicio, LocalDateTime fin);
-
-    /**
      * Versión optimizada que trae datos agregados (conteo de citas, bonos, etc.) 
      * en una sola consulta para evitar problemas de rendimiento N+1.
      */
@@ -127,9 +119,4 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
         Pageable pageable
     );
 
-    /**
-     * Cuenta los clientes activos
-     * @return numero de clientes activos
-     */
-    long countByActivoTrue();
 }

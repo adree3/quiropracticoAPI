@@ -29,10 +29,9 @@ public class AgendaController {
     @PostMapping
     public ResponseEntity<BloqueoAgendaDto> crearBloqueo(
             @Valid @RequestBody BloqueoAgendaDto dto,
-            @RequestParam(defaultValue = "false") boolean force,
-            @RequestParam(defaultValue = "false") boolean undo
+            @RequestParam(defaultValue = "false") boolean force
     ) {
-        return ResponseEntity.ok(agendaService.crearBloqueo(dto, force, undo));
+        return ResponseEntity.ok(agendaService.crearBloqueo(dto, force));
     }
 
     /**
@@ -51,10 +50,9 @@ public class AgendaController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> borrar(
-            @PathVariable Integer id,
-            @RequestParam(defaultValue = "false") boolean undo
+            @PathVariable Integer id
             ) {
-        agendaService.borrarBloqueo(id, undo);
+        agendaService.borrarBloqueo(id);
         return ResponseEntity.ok().build();
     }
 
@@ -67,9 +65,8 @@ public class AgendaController {
     @PutMapping("/{id}")
     public ResponseEntity<BloqueoAgendaDto> actualizarBloqueo(
             @PathVariable Integer id,
-            @RequestBody BloqueoAgendaDto dto,
-            @RequestParam(defaultValue = "false") boolean undo
+            @RequestBody BloqueoAgendaDto dto
     ) {
-        return ResponseEntity.ok(agendaService.actualizarBloqueo(id, dto, undo));
+        return ResponseEntity.ok(agendaService.actualizarBloqueo(id, dto));
     }
 }

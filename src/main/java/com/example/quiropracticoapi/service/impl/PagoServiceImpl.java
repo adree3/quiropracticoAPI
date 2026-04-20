@@ -173,10 +173,10 @@ public class PagoServiceImpl implements PagoService {
             pagoRepository.save(pago);
 
             auditoriaServiceImpl.registrarAccion(
-                    TipoAccion.DESHACER,
+                    TipoAccion.EDITAR,
                     "PAGO",
                     idPago.toString(),
-                    "[UNDO] Cobro confirmado por error: " + pago.getMonto() + "€ - " + pago.getCliente().getNombre()
+                    "[REVERTIDO] Cobro marcado como pendiente: " + pago.getMonto() + "€ - " + pago.getCliente().getNombre()
             );
         }
     }

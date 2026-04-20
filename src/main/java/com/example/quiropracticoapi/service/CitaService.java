@@ -32,4 +32,8 @@ public interface CitaService {
     com.example.quiropracticoapi.dto.CitasKpiDto getCitasKpis(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin);
 
     List<CitaDto> getCitasPorRango(LocalDate desde, LocalDate hasta, Integer idQuiropractico);
+
+    CitaDto procesarFirma(Integer idCita, String base64Firma);
+    
+    String generarBorradorFirma(Integer idCita);
 }
