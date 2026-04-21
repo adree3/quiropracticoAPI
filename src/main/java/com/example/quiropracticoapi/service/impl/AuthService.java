@@ -6,6 +6,7 @@ import com.example.quiropracticoapi.dto.auth.RegisterRequest;
 import com.example.quiropracticoapi.model.Usuario;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -17,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AuthService {
@@ -27,6 +30,19 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
 
+    // Rate Limiting: IP -> {intentos, ultimoIntento}
+    private static class RateLimitInfo {
+        int intentos;
+        LocalDateTime ultimoIntento;
+        RateLimitInfo(int intentos, LocalDateTime ultimoIntento) {
+            this.intentos = intentos;
+            this.ultimoIntento = ultimoIntento;
+        }
+    }
+    private final Map<String, RateLimitInfo> loginAttemptsByIp = new ConcurrentHashMap<>();
+    private static final int MAX_ATTEMPTS_PER_IP = 5;
+    private static final int BLOCK_TIME_MINUTES = 15;
+
     @Autowired
     public AuthService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, AuditoriaServiceImpl auditoriaServiceImpl) {
         this.usuarioRepository = usuarioRepository;
@@ -34,6 +50,41 @@ public class AuthService {
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("CF-Connecting-IP");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("X-Forwarded-For");
+            if (ip != null && !ip.isEmpty()) {
+                // X-Forwarded-For puede contener una lista de IPs, tomamos la primera
+                ip = ip.split(",")[0].trim();
+            }
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return ip;
+    }
+
+    private void checkRateLimit(String ip) {
+        RateLimitInfo info = loginAttemptsByIp.get(ip);
+        if (info != null && info.intentos >= MAX_ATTEMPTS_PER_IP) {
+            if (info.ultimoIntento.plusMinutes(BLOCK_TIME_MINUTES).isAfter(LocalDateTime.now())) {
+                throw new LockedException("Demasiados intentos de inicio de sesión desde esta dirección IP. Bloqueada temporalmente.");
+            } else {
+                loginAttemptsByIp.remove(ip); // Reiniciar tras tiempo de bloqueo
+            }
+        }
+    }
+
+    private void registerFailedAttempt(String ip) {
+        loginAttemptsByIp.compute(ip, (key, val) -> {
+            if (val == null) return new RateLimitInfo(1, LocalDateTime.now());
+            val.intentos++;
+            val.ultimoIntento = LocalDateTime.now();
+            return val;
+        });
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -46,10 +97,8 @@ public class AuthService {
         user.setIntentosFallidos(0);
         user.setCuentaBloqueada(false);
 
-        usuarioRepository.save(user);
-
         Usuario guardado = usuarioRepository.save(user);
-        String jwtToken = jwtService.generateToken(user);
+        String jwtToken = jwtService.generateToken(guardado);
 
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
@@ -60,19 +109,20 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .token(jwtToken)
-                .rol(user.getRol().name())
-                .nombre(user.getNombreCompleto())
+                .rol(guardado.getRol().name())
+                .nombre(guardado.getNombreCompleto())
                 .build();
     }
 
     @Transactional(noRollbackFor = AuthenticationException.class)
-    public AuthResponse login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String clientIp = getClientIp(httpRequest);
+        checkRateLimit(clientIp);
+
         Usuario user = usuarioRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario o contraseña incorrectos"));
 
-        if (user.isCuentaBloqueada()) {
-            throw new LockedException("Cuenta bloqueada por seguridad. Contacte con un administrador.");
-        }
+        // El authenticationManager.authenticate lanzará LockedException si isAccountNonLocked() es falso
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -80,10 +130,13 @@ public class AuthService {
                             request.getPassword()
                     )
             );
+            
+            // Si llega aquí, es exitoso: limpiar intentos de usuario e IP
             if (user.getIntentosFallidos() > 0) {
                 user.setIntentosFallidos(0);
             }
-            // Registrar timestamp de última conexión exitosa
+            loginAttemptsByIp.remove(clientIp);
+
             user.setUltimaConexion(LocalDateTime.now());
             usuarioRepository.save(user);
 
@@ -102,13 +155,16 @@ public class AuthService {
                     .nombre(user.getNombreCompleto())
                     .build();
 
+        } catch (LockedException e) {
+            // El usuario ya está bloqueado lógicamente
+            throw new LockedException("Cuenta bloqueada por seguridad. Contacte con un administrador.");
         } catch (BadCredentialsException e) {
+            registerFailedAttempt(clientIp);
+            
             int nuevosIntentos = user.getIntentosFallidos() + 1;
             user.setIntentosFallidos(nuevosIntentos);
 
             int maxIntentos = 5;
-            int restantes = maxIntentos - nuevosIntentos;
-
             if (nuevosIntentos >= maxIntentos) {
                 user.setCuentaBloqueada(true);
                 usuarioRepository.save(user);
@@ -116,11 +172,14 @@ public class AuthService {
                         TipoAccion.BLOQUEADO,
                         "USUARIO",
                         user.getUsername(),
-                        "BLOQUEO AUTOMÁTICO DE CUENTA: Superados 5 intentos fallidos de contraseña."
+                        "BLOQUEO AUTOMÁTICO DE CUENTA: Superados 5 intentos fallidos.",
+                        user.getUsername(),
+                        "Cuenta bloqueada por exceso de intentos"
                 );
                 throw new LockedException("Has superado el límite de 5 intentos. Tu cuenta ha sido BLOQUEADA.");
             }
             usuarioRepository.save(user);
+            int restantes = maxIntentos - nuevosIntentos;
             throw new BadCredentialsException("Credenciales incorrectas. Intentos restantes: " + restantes);
         }
     }

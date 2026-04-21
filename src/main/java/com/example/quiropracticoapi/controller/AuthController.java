@@ -35,8 +35,9 @@ public class AuthController {
     @Operation(summary = "Iniciar sesión", description = "Autentica al usuario y devuelve un token JWT.")
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
-            @Valid @RequestBody LoginRequest request
+            @Valid @RequestBody LoginRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
     ) {
-        return ResponseEntity.ok(authService.login(request));
+        return ResponseEntity.ok(authService.login(request, httpRequest));
     }
 }

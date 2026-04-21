@@ -37,19 +37,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
-        String jwt = null;
+        final String jwt;
         final String username;
+        final String path = request.getServletPath();
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwt = authHeader.substring(7);
+        // blindaje: Solo permitimos token por URL para la ruta del handshake del WebSocket (Kiosk)
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            if (path.startsWith("/ws-kiosk")) {
+                jwt = request.getParameter("token");
+                if (jwt == null) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+            } else {
+                filterChain.doFilter(request, response);
+                return;
+            }
         } else {
-            // Soporte para Flutter Web: Extraer token de query param para recursos estáticos (imágenes)
-            jwt = request.getParameter("token");
-        }
-
-        if (jwt == null) {
-            filterChain.doFilter(request, response);
-            return;
+            jwt = authHeader.substring(7);
         }
 
         try {
