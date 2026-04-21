@@ -44,8 +44,8 @@ public interface DocumentoService {
     /** Genera la URL prefirmada justo cuando se va a visualizar (JIT) */
     String obtenerUrlTemporal(Integer idDocumento, boolean download);
 
-    /** Resuelve el archivo original en R2, le inyecta SUFIJO y devuelve el ByteStream puro. */
-    byte[] obtenerThumbnailBytes(Integer idDocumento);
+    /** Genera una URL prefirmada específica para la miniatura (Zero-Copy). */
+    String obtenerUrlThumbnail(Integer idDocumento);
 
     /** Permite editar notas y asociar cita (si no tiene una ya). */
     DocumentoDto actualizarMetadatos(Integer idDocumento, Integer idCita, Integer idPago, String notas);

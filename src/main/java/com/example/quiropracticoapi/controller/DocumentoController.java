@@ -69,41 +69,10 @@ public class DocumentoController {
         return ResponseEntity.ok(documentoService.obtenerUrlTemporal(idDocumento, download));
     }
 
-    @Operation(summary = "Descargar documento (Proxy)", description = "Descarga el archivo directamente a través del servidor para evitar bloqueos de CORS.")
-    @GetMapping("/{idDocumento}/download")
-    public ResponseEntity<org.springframework.core.io.Resource> descargarDocumento(@PathVariable Integer idDocumento) {
-        DocumentoDto doc = documentoService.obtenerDocumento(idDocumento);
-        byte[] bytes = documentoService.obtenerArchivoPuro(idDocumento);
-        
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(bytes);
-        
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getNombreOriginal() + "\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType(doc.getMimeType()))
-                .contentLength(bytes.length)
-                .body(resource);
-    }
-
-    @Operation(summary = "Visualizar documento inline (Proxy)", description = "Abre el archivo directamente en el navegador (sin descargar) para PDFs e imágenes.")
-    @GetMapping("/{idDocumento}/view")
-    public ResponseEntity<org.springframework.core.io.Resource> visualizarDocumento(@PathVariable Integer idDocumento) {
-        DocumentoDto doc = documentoService.obtenerDocumento(idDocumento);
-        byte[] bytes = documentoService.obtenerArchivoPuro(idDocumento);
-
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(bytes);
-
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getNombreOriginal() + "\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType(doc.getMimeType()))
-                .contentLength(bytes.length)
-                .body(resource);
-    }
+    @Operation(summary = "Obtener URL de miniatura", description = "Devuelve una URL prefirmada de R2 para la miniatura optimizada.")
     @GetMapping("/{idDocumento}/thumbnail")
-    public ResponseEntity<byte[]> obtenerThumbnail(@PathVariable Integer idDocumento) {
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "image/jpeg")
-                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=31536000")
-                .body(documentoService.obtenerThumbnailBytes(idDocumento));
+    public ResponseEntity<String> obtenerThumbnail(@PathVariable Integer idDocumento) {
+        return ResponseEntity.ok(documentoService.obtenerUrlThumbnail(idDocumento));
     }
 
     @PatchMapping("/{id}")

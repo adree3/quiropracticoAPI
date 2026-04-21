@@ -95,8 +95,8 @@ public class DocumentoServiceImpl implements DocumentoService {
         doc.setTipoDocumento(tipo);
         doc.setMimeType(detectedMimeType);
         doc.setTamanyoBytes(file.getSize());
-        doc.setEstadoSubida(EstadoSubida.PENDIENTE);
-        doc.setFechaSubida(LocalDateTime.now());
+        doc.setEstadoSubida(EstadoSubida.ACTIVO); // Directo a activo para simplificar si no hay saga asíncrona real
+        doc.setFechaCreacion(LocalDateTime.now());
         
         DocumentoCliente docGuardado = documentoRepository.save(doc);
 
@@ -105,8 +105,8 @@ public class DocumentoServiceImpl implements DocumentoService {
         String path;
 
         if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
-            String year = String.valueOf(docGuardado.getFechaSubida().getYear());
-            String month = String.format("%02d", docGuardado.getFechaSubida().getMonthValue());
+            String year = String.valueOf(docGuardado.getFechaCreacion().getYear());
+            String month = String.format("%02d", docGuardado.getFechaCreacion().getMonthValue());
             // Formato blindado: facturacion/{anno}/{mes}/{idCliente}_{idDocumento}.ext
             path = String.format("facturacion/%s/%s/%d_%d%s", 
                     year, month, idCliente, docGuardado.getIdDocumento(), extension);
@@ -211,7 +211,7 @@ public class DocumentoServiceImpl implements DocumentoService {
 
     @Override
     public List<DocumentoDto> listarDocumentosCliente(Integer idCliente) {
-        return documentoRepository.findByClienteIdClienteAndActivoTrueOrderByFechaSubidaDesc(idCliente)
+        return documentoRepository.findByClienteIdClienteAndActivoTrueOrderByFechaCreacionDesc(idCliente)
                 .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
@@ -219,7 +219,7 @@ public class DocumentoServiceImpl implements DocumentoService {
 
     @Override
     public List<DocumentoDto> listarDocumentosCita(Integer idCita) {
-        return documentoRepository.findByCitaIdCitaAndActivoTrueOrderByFechaSubidaDesc(idCita)
+        return documentoRepository.findByCitaIdCitaAndActivoTrueOrderByFechaCreacionDesc(idCita)
                 .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
@@ -300,7 +300,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
-    public byte[] obtenerThumbnailBytes(Integer idDocumento) {
+    public String obtenerUrlThumbnail(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
 
@@ -309,13 +309,11 @@ public class DocumentoServiceImpl implements DocumentoService {
         }
         
         String thumbPath = getThumbPath(doc.getPathArchivo());
+        // Intentar firmar la miniatura, si falla o no existe (ej. legacy), firmar el original
         try {
-            // Intentar obtener la miniatura optimizada
-            return storageService.getFileBytes(thumbPath);
+            return storageService.generatePresignedUrl(thumbPath);
         } catch (Exception e) {
-            // Si no existe (ej. archivo subido antes de esta actualización), devolver el original
-            // Nota: En una fase futura podríamos generar la miniatura JIT aquí y guardarla en R2.
-            return storageService.getFileBytes(doc.getPathArchivo());
+            return storageService.generatePresignedUrl(doc.getPathArchivo());
         }
     }
 
@@ -388,8 +386,17 @@ public class DocumentoServiceImpl implements DocumentoService {
         dto.setMimeType(doc.getMimeType());
         dto.setEstadoSubida(doc.getEstadoSubida());
         dto.setTamanyoBytes(doc.getTamanyoBytes());
-        dto.setFechaSubida(doc.getFechaSubida());
+        dto.setFechaSubida(doc.getFechaCreacion());
         dto.setFechaEliminacionLogica(doc.getFechaEliminacionLogica());
+        
+        // Inyectamos la miniatura para el GridView (Zero-Copy)
+        if (doc.getMimeType() != null && doc.getMimeType().startsWith("image/")) {
+            try {
+                dto.setThumbnailUrl(obtenerUrlThumbnail(doc.getIdDocumento()));
+            } catch (Exception e) {
+                // Si falla la firma, no bloqueamos el listado
+            }
+        }
         
         return dto;
     }

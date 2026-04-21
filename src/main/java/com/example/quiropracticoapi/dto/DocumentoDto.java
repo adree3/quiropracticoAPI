@@ -15,6 +15,7 @@ public class DocumentoDto {
     private String notasMedicas;
     private String nombreOriginal;
     private String url;
+    private String thumbnailUrl;
     private TipoDocumento tipoDocumento;
     private String mimeType;
     private EstadoSubida estadoSubida;
