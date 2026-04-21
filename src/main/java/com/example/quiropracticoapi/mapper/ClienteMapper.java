@@ -16,7 +16,7 @@ public class ClienteMapper {
         }
         ClienteDto dto = new ClienteDto();
         dto.setIdCliente(cliente.getIdCliente());
-        dto.setFechaAlta(cliente.getFechaAlta());
+        dto.setFechaAlta(cliente.getFechaCreacion());
         dto.setNombre(cliente.getNombre());
         dto.setApellidos(cliente.getApellidos());
         dto.setFechaNacimiento(cliente.getFechaNacimiento());

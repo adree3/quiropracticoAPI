@@ -21,7 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table(name = "usuarios")
-public class Usuario implements UserDetails, SoftDeletable, Auditable {
+public class Usuario extends BaseAuditEntity implements UserDetails, SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")
@@ -81,7 +81,7 @@ public class Usuario implements UserDetails, SoftDeletable, Auditable {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !this.cuentaBloqueada;
     }
 
     @Override

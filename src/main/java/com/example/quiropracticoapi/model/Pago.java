@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.quiropracticoapi.model.enums.MetodoPago;
+import com.example.quiropracticoapi.model.enums.TipoAccion;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,8 +17,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@AttributeOverride(name = "fechaCreacion", column = @Column(name = "fecha_pago", nullable = false, updatable = false))
 @Table(name = "pagos")
-public class Pago {
+public class Pago extends BaseAuditEntity implements Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_pago")
@@ -35,9 +37,6 @@ public class Pago {
     @Column(name = "metodo_pago", nullable = false)
     private MetodoPago metodoPago;
 
-    @Column(name = "fecha_pago", nullable = false, updatable = false)
-    private LocalDateTime fechaPago;
-
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_servicio_pagado", nullable = true)
@@ -49,10 +48,12 @@ public class Pago {
     @Column(name = "pagado", nullable = false)
     private boolean pagado = true;
 
-    @PrePersist
-    protected void onCreate() {
-        if (this.fechaPago == null) {
-            this.fechaPago = LocalDateTime.now();
-        }
+    @Override
+    public String toResumen(TipoAccion accion) {
+        return String.format("Pago #%s | Cliente: %s | Monto: %s€ | Método: %s",
+                idPago, 
+                (cliente != null ? cliente.getNombre() + " " + cliente.getApellidos() : "N/A"), 
+                monto, 
+                metodoPago);
     }
 }

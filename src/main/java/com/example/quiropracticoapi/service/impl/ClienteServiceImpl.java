@@ -175,7 +175,7 @@ public class ClienteServiceImpl implements ClienteService {
             dto.setEmail(p.getEmail());
             dto.setTelefono(p.getTelefono());
             dto.setActivo(p.getActivo());
-            dto.setFechaAlta(p.getFechaAlta());
+            dto.setFechaAlta(p.getFechaCreacion());
             
             // Datos agregados ya calculados en SQL
             dto.setCitasPendientes(p.getCountCitasPendientes());

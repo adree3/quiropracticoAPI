@@ -17,7 +17,7 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
     /**
      * Devuelve los documentos activos de un cliente, ordenados por fecha descendente.
      */
-    List<DocumentoCliente> findByClienteIdClienteAndActivoTrueOrderByFechaSubidaDesc(Integer idCliente);
+    List<DocumentoCliente> findByClienteIdClienteAndActivoTrueOrderByFechaCreacionDesc(Integer idCliente);
 
     /**
      * Devuelve los documentos inactivos (en la papelera) de un cliente, ordenados por fecha descendente de borrado.
@@ -27,13 +27,13 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
     /**
      * Devuelve los documentos activos vinculados a una cita específica.
      */
-    List<DocumentoCliente> findByCitaIdCitaAndActivoTrueOrderByFechaSubidaDesc(Integer idCita);
+    List<DocumentoCliente> findByCitaIdCitaAndActivoTrueOrderByFechaCreacionDesc(Integer idCita);
 
     /**
      * Busca registros atascados en PENDIENTE más antiguos que un tiempo dado.
      * Usado por el Cronjob de limpieza para detectar subidas fallidas.
      */
-    @Query("SELECT d FROM DocumentoCliente d WHERE d.estadoSubida = 'PENDIENTE' AND d.fechaSubida < :umbralFecha")
+    @Query("SELECT d FROM DocumentoCliente d WHERE d.estadoSubida = 'PENDIENTE' AND d.fechaCreacion < :umbralFecha")
     List<DocumentoCliente> findRegistrosPendientesAntiguos(@Param("umbralFecha") LocalDateTime umbralFecha);
 
     /**

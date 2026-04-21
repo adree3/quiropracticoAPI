@@ -101,7 +101,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      * en una sola consulta para evitar problemas de rendimiento N+1.
      */
     @Query(value = "SELECT c.id_cliente as idCliente, c.nombre as nombre, c.apellidos as apellidos, " +
-           "c.email as email, c.telefono as telefono, c.activo as activo, c.fecha_alta as fecha_alta, " +
+           "c.email as email, c.telefono as telefono, c.activo as activo, c.fecha_alta as fecha_creacion, " +
            "(SELECT COUNT(*) FROM citas ct WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'programada') as countCitasPendientes, " +
            "(SELECT COUNT(*) FROM bonos_activos b WHERE b.id_cliente = c.id_cliente AND b.sesiones_restantes > 0) as countBonosActivos, " +
            "CAST(EXISTS(SELECT 1 FROM grupos_familiares g WHERE g.id_cliente_propietario = c.id_cliente) AS SIGNED) as tieneFamiliares, " +

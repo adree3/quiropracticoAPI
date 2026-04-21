@@ -14,10 +14,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@AttributeOverride(name = "fechaCreacion", column = @Column(name = "fecha_alta", nullable = false, updatable = false))
 @Table(name = "clientes", indexes = {
     @Index(name = "idx_cliente_activo", columnList = "activo")
 })
-public class Cliente implements SoftDeletable, Auditable {
+public class Cliente extends BaseAuditEntity implements SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
@@ -41,9 +42,6 @@ public class Cliente implements SoftDeletable, Auditable {
     @Column(name = "direccion", length = 255)
     private String direccion;
 
-    @Column(name = "fecha_alta", nullable = false, updatable = false)
-    private LocalDateTime fechaAlta;
-
     @Column(name = "notas_privadas", columnDefinition = "TEXT")
     private String notasPrivadas;
 
@@ -59,12 +57,5 @@ public class Cliente implements SoftDeletable, Auditable {
     public String toResumen(com.example.quiropracticoapi.model.enums.TipoAccion accion) {
         return String.format("Cliente #%s | %s %s | Activo: %s",
                 idCliente, nombre, apellidos, activo ? "Sí" : "No");
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.fechaAlta == null) {
-            this.fechaAlta = LocalDateTime.now();
-        }
     }
 }

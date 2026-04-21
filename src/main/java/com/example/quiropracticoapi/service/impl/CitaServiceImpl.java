@@ -317,11 +317,15 @@ public class CitaServiceImpl implements CitaService {
         EstadoCita estadoAnterior = cita.getEstado();
         cita.setEstado(nuevoEstado);
 
-        // Si cambia de COMPLETADA a otra cosa, limpiar firma y devolver bono
+        // Si cambia de COMPLETADA a otra cosa, limpiar firma y justificante
         BonoActivo bonoAfectado = null;
         if (estadoAnterior == EstadoCita.completada && nuevoEstado != EstadoCita.completada) {
             limpiarFirmaYJustificante(cita);
-            bonoAfectado = devolverSesionBonoSiAplica(cita);
+            
+            // Solo devolvemos la sesión si el nuevo estado es CANCELADA o AUSENTE
+            if (nuevoEstado == EstadoCita.cancelada || nuevoEstado == EstadoCita.ausente) {
+                bonoAfectado = devolverSesionBonoSiAplica(cita);
+            }
         }
 
         Cita citaGuardada = citaRepository.save(cita);
@@ -402,10 +406,14 @@ public class CitaServiceImpl implements CitaService {
         if (request.getEstado() != null) {
             try {
                 EstadoCita nuevoEst = EstadoCita.valueOf(request.getEstado().toLowerCase());
-                // Si cambia de COMPLETADA a otra cosa, limpiar firma y devolver bono
+                // Si cambia de COMPLETADA a otra cosa, limpiar firma y justificante
                 if (estadoAnterior == EstadoCita.completada && nuevoEst != EstadoCita.completada) {
                     limpiarFirmaYJustificante(cita);
-                    bonoAfectado = devolverSesionBonoSiAplica(cita);
+                    
+                    // Solo devolvemos la sesión si el nuevo estado es CANCELADA o AUSENTE
+                    if (nuevoEst == EstadoCita.cancelada || nuevoEst == EstadoCita.ausente) {
+                        bonoAfectado = devolverSesionBonoSiAplica(cita);
+                    }
                 }
                 cita.setEstado(nuevoEst);
             } catch (IllegalArgumentException e) {
@@ -666,7 +674,7 @@ public class CitaServiceImpl implements CitaService {
         
         if (consumoOpt.isPresent()) {
             bono = consumoOpt.get().getBonoActivo();
-            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bono.getIdBonoActivo());
+            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaCreacionAsc(bono.getIdBonoActivo());
             
             for (int i = 0; i < bono.getSesionesTotales(); i++) {
                 if (i < consumosDelBono.size()) {
@@ -697,7 +705,7 @@ public class CitaServiceImpl implements CitaService {
             bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
             
             if (bono != null) {
-                List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bono.getIdBonoActivo());
+                List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaCreacionAsc(bono.getIdBonoActivo());
                 
                 // Añadir las sesiones ya consumidas del bono
                 int idx = 0;
@@ -793,7 +801,7 @@ public class CitaServiceImpl implements CitaService {
             doc.setPathArchivo(path);
             doc.setTipoDocumento(com.example.quiropracticoapi.model.enums.TipoDocumento.JUSTIFICANTE_ASISTENCIA);
             doc.setMimeType("application/pdf");
-            doc.setFechaSubida(LocalDateTime.now());
+            doc.setFechaCreacion(LocalDateTime.now());
         }
         
         doc.setNombreOriginal(nombre + ".pdf");
@@ -823,7 +831,7 @@ public class CitaServiceImpl implements CitaService {
         
         if (bonoAUsar != null) {
             // Buscar todas las citas que han consumido este bono para el historial
-            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(bonoAUsar.getIdBonoActivo());
+            List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaCreacionAsc(bonoAUsar.getIdBonoActivo());
             
             String nombreS = (bonoAUsar.getServicioComprado() != null && bonoAUsar.getServicioComprado().getNombreServicio() != null) 
                              ? bonoAUsar.getServicioComprado().getNombreServicio() 

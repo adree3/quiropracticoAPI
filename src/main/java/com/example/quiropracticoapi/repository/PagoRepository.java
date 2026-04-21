@@ -27,13 +27,13 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      * @param fin fecha y hora de fin
      * @return pageable de pagos
      */
-    Page<Pago> findByFechaPagoBetweenAndPagadoOrderByFechaPagoDesc(LocalDateTime inicio, LocalDateTime fin, boolean pagado, Pageable pageable);
+    Page<Pago> findByFechaCreacionBetweenAndPagadoOrderByFechaCreacionDesc(LocalDateTime inicio, LocalDateTime fin, boolean pagado, Pageable pageable);
 
     /**
      * Busca los pagos pendientes
      * @return lista de pagos pendientes
      */
-    Page<Pago> findByPagadoFalseOrderByFechaPagoDesc(Pageable pageable);
+    Page<Pago> findByPagadoFalseOrderByFechaCreacionDesc(Pageable pageable);
 
 
     /**
@@ -46,7 +46,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      * @return un page de los pagos pagados filtrados
      */
     @Query("SELECT p FROM Pago p WHERE p.pagado = true " +
-            "AND p.fechaPago BETWEEN :inicio AND :fin " +
+            "AND p.fechaCreacion BETWEEN :inicio AND :fin " +
             "AND (:search IS NULL OR :search = '' OR (" +
             "   LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "   LOWER(p.cliente.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -80,7 +80,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      * @param fin fecha fin
      * @return la suma de los ingresos
      */
-    @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.pagado = true AND p.fechaPago BETWEEN :inicio AND :fin")
+    @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.pagado = true AND p.fechaCreacion BETWEEN :inicio AND :fin")
     Double sumTotalCobradoEnRango(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
     /**

@@ -47,7 +47,7 @@ public class PagoServiceImpl implements PagoService {
 
     @Override
     public Page<PagoDto> getPagos(LocalDateTime inicio, LocalDateTime fin, boolean pagado, String search, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaPago").descending());
+        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaCreacion").descending());
 
         Page<Pago> paginaResultados;
 
@@ -95,7 +95,7 @@ public class PagoServiceImpl implements PagoService {
         pago.setCliente(cliente);
         pago.setMonto(servicio.getPrecio());
         pago.setServicioPagado(servicio);
-        pago.setFechaPago(LocalDateTime.now());
+        pago.setFechaCreacion(LocalDateTime.now());
         try {
             pago.setMetodoPago(MetodoPago.valueOf(request.getMetodoPago().toLowerCase()));
         } catch (IllegalArgumentException e) {
@@ -150,7 +150,7 @@ public class PagoServiceImpl implements PagoService {
         boolean estabaPagado = pago.isPagado();
         if (!estabaPagado) {
             pago.setPagado(true);
-            pago.setFechaPago(LocalDateTime.now());
+            pago.setFechaCreacion(LocalDateTime.now());
             pagoRepository.save(pago);
 
             auditoriaServiceImpl.registrarAccion(
@@ -169,7 +169,7 @@ public class PagoServiceImpl implements PagoService {
 
         if (pago.isPagado()) {
             pago.setPagado(false);
-            pago.setFechaPago(null);
+            pago.setFechaCreacion(null);
             pagoRepository.save(pago);
 
             auditoriaServiceImpl.registrarAccion(
@@ -189,7 +189,7 @@ public class PagoServiceImpl implements PagoService {
         dto.setConcepto(p.getServicioPagado() != null ? p.getServicioPagado().getNombreServicio() : "Cobro");
         dto.setMonto(p.getMonto());
         dto.setMetodoPago(p.getMetodoPago().name());
-        dto.setFechaPago(p.getFechaPago());
+        dto.setFechaPago(p.getFechaCreacion());
         dto.setPagado(p.isPagado());
         return dto;
     }

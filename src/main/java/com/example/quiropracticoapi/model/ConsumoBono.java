@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "consumos_bono")
-public class ConsumoBono {
+@AttributeOverride(name = "fechaCreacion", column = @Column(name = "fecha_consumo", nullable = false, updatable = false))
+public class ConsumoBono extends BaseAuditEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_consumo")
@@ -31,16 +31,6 @@ public class ConsumoBono {
     @JoinColumn(name = "id_bono_activo", nullable = false)
     private BonoActivo bonoActivo;
 
-    @Column(name = "fecha_consumo", nullable = false, updatable = false)
-    private LocalDateTime fechaConsumo;
-
     @Column(name = "sesiones_restantes_snapshot")
     private Integer sesionesRestantesSnapshot;
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.fechaConsumo == null) {
-            this.fechaConsumo = LocalDateTime.now();
-        }
-    }
 }

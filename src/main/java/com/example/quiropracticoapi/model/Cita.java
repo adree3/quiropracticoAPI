@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
     @Index(name = "idx_cita_fechas_estado", columnList = "fecha_hora_inicio, fecha_hora_fin, estado"),
     @Index(name = "idx_cita_estado", columnList = "estado")
 })
-public class Cita implements SoftDeletable, Auditable {
+public class Cita extends BaseAuditEntity implements SoftDeletable, Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -13,12 +13,13 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Entity
+@AttributeOverride(name = "fechaCreacion", column = @Column(name = "fecha_subida", nullable = false, updatable = false))
 @Table(name = "documentos_cliente", indexes = {
     @Index(name = "idx_doc_cliente", columnList = "id_cliente"),
     @Index(name = "idx_doc_estado", columnList = "estado_subida"),
     @Index(name = "idx_doc_tipo", columnList = "tipo_documento")
 })
-public class DocumentoCliente {
+public class DocumentoCliente extends BaseAuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,9 +70,6 @@ public class DocumentoCliente {
     @Column(name = "error_descripcion", length = 500)
     private String errorDescripcion;
 
-    @Column(name = "fecha_subida", nullable = false)
-    private LocalDateTime fechaSubida;
-
     /** Tamaño real del archivo en bytes. Para mostrar en UI (ej: "4,3 MB") y controlar cuota. */
     @Column(name = "tamanyo_bytes", nullable = false)
     private Long tamanyoBytes;
@@ -84,11 +82,4 @@ public class DocumentoCliente {
     /** Fecha en la que el documento fue enviado a la papelera (borrado lógico) */
     @Column(name = "fecha_eliminacion_logica")
     private LocalDateTime fechaEliminacionLogica;
-
-    @PrePersist
-    protected void onCreate() {
-        if (this.fechaSubida == null) {
-            this.fechaSubida = LocalDateTime.now();
-        }
-    }
 }

@@ -128,8 +128,8 @@ public class BonoServiceImpl implements BonoService {
             consumo.setBonoActivo(guardado);
             consumo.setSesionesRestantesSnapshot(guardado.getSesionesRestantes());
             
-            // Asignar fecha actual como fecha de consumo (o la de la cita si preferimos, pero fechaConsumo suele ser "cuando se descuenta")
-            consumo.setFechaConsumo(java.time.LocalDateTime.now());
+            // Asignar fecha actual como fecha de consumo
+            consumo.setFechaCreacion(java.time.LocalDateTime.now());
             
             consumoBonoRepository.save(consumo);
         }
@@ -151,7 +151,7 @@ public class BonoServiceImpl implements BonoService {
                 .map(consumo -> {
                     ConsumoBonoDto dto = new ConsumoBonoDto();
                     dto.setIdConsumo(consumo.getIdConsumo());
-                    dto.setFechaConsumo(consumo.getFechaConsumo());
+                    dto.setFechaConsumo(consumo.getFechaCreacion());
                     dto.setSesionesRestantesSnapshot(consumo.getSesionesRestantesSnapshot());
 
                     if (consumo.getCita() != null) {

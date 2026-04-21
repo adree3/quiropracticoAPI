@@ -22,7 +22,7 @@ public interface ConsumoBonoRepository extends JpaRepository<ConsumoBono, Intege
      * @param bonoActivoId identificador del bono
      * @return lista de usos del bono
      */
-    List<ConsumoBono> findByBonoActivoIdBonoActivoOrderByFechaConsumoAsc(Integer bonoActivoId);
+    List<ConsumoBono> findByBonoActivoIdBonoActivoOrderByFechaCreacionAsc(Integer bonoActivoId);
     /**
      * Busca el uso asociado a
      * una cita (para verificar si una cita especifica ya desconto un uso del bono)
