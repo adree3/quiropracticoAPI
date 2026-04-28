@@ -58,10 +58,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
+            
             username = jwtService.extractUsername(jwt);
+
+            Long clinicaId = jwtService.extractClinicaId(jwt);
+
+            // Inyectar contexto de clínica lo antes posible para auditoría y logs
+            if (clinicaId != null && clinicaId > 0) {
+                TenantContext.setTenantId(clinicaId);
+            }
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
@@ -70,10 +79,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
             }
         } catch (Exception e) {
-            log.warn("Token inválido o mal formado ignorado: {}", e.getMessage());
+            log.error("[DEBUG-AUTH] Error crítico en JwtAuthenticationFilter: ", e);
+        } finally {
+            // No limpiamos aquí todavía porque el Interceptor lo hará al final de la petición MVC.
+            // O si queremos ser ultra-seguros, lo limpiamos si no hay cadena de filtros pendiente.
+            // Pero según la arquitectura, el TenantInterceptor.afterCompletion es el encargado.
         }
         filterChain.doFilter(request, response);
     }

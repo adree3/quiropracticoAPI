@@ -20,12 +20,17 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      */
     Optional<Usuario> findByUsername (String username);
 
+    Optional<Usuario> findByUsernameAndClinicaIdClinica(String username, Long clinicaId);
+
+    Optional<Usuario> findByUsernameAndRol(String username, Rol rol);
+
     /**
      * Busca el usuario según su rol (quiro, recepcionista o admin)
      * @param rol parametro por el que se busca
      * @return lista de usuarios del mismo rol
      */
     List<Usuario> findByRol(Rol rol);
+    List<Usuario> findByRolAndClinicaIdClinica(Rol rol, Long clinicaId);
 
     /**
      * Devuelve un page de usuarios activo o no
@@ -45,14 +50,30 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * Busca lo usuarios quiropracticos activos
      * @return lista de usuarios
      */
-    @Query("SELECT u FROM Usuario u WHERE u.rol = 'quiropráctico' AND u.activo = true")
-    List<Usuario> findQuiropracticosActivos();
+    @Query("SELECT u FROM Usuario u WHERE u.rol = 'quiropráctico' AND u.activo = true AND u.clinica.idClinica = :clinicaId")
+    List<Usuario> findQuiropracticosActivos(@org.springframework.data.repository.query.Param("clinicaId") Long clinicaId);
 
     /**
      * Comprueba si existe el usuario por su username
      * @param username nombre a comprobar
      * @return true o false
      */
-    Boolean existsByUsername(String username);
+    Boolean existsByUsernameAndClinicaIdClinica(String username, Long clinicaId);
 
+    // Métodos filtrados manualmente por clinicaId (ya que UsuarioRepository está excluido del AOP)
+    Page<Usuario> findByRolNotAndClinicaIdClinica(Rol rol, Long clinicaId, Pageable pageable);
+    Page<Usuario> findByActivoAndRolNotAndClinicaIdClinica(Boolean activo, Rol rol, Long clinicaId, Pageable pageable);
+    long countByCuentaBloqueadaTrueAndActivoTrueAndRolNotAndClinicaIdClinica(Rol rol, Long clinicaId);
+
+    // Métodos que excluyen super_admin
+    Page<Usuario> findByRolNot(Rol rol, Pageable pageable);
+    Page<Usuario> findByActivoAndRolNot(Boolean activo, Rol rol, Pageable pageable);
+    long countByCuentaBloqueadaTrueAndActivoTrueAndRolNot(Rol rol);
+
+    /**
+     * Búsqueda global por ID saltándose los filtros de Hibernate (Tenant).
+     * Las Native Queries no aplican filtros, lo que lo hace ideal para seguridad.
+     */
+    @Query(value = "SELECT * FROM usuarios WHERE id_usuario = :id", nativeQuery = true)
+    Optional<Usuario> findByIdGlobal(@org.springframework.data.repository.query.Param("id") Integer id);
 }

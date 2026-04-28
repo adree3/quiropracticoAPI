@@ -1,6 +1,9 @@
 package com.example.quiropracticoapi.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,11 +17,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "historial_clinico")
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class HistorialClinico {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_historial")
     private Integer idHistorial;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_cita", nullable = false, unique = true)

@@ -245,6 +245,7 @@ public class CitaServiceImpl implements CitaService {
 
     @Override
     public List<CitaDto> getCitasPorFecha(LocalDate fecha) {
+        log.info("[DEBUG-TENANT] Servicio: CitaServiceImpl | Agenda para fecha: {} | TenantContext: {}", fecha, com.example.quiropracticoapi.config.TenantContext.getTenantId());
         List<Cita> citas=  citaRepository.findByFechaHoraInicioBetween(
                 fecha.atStartOfDay(),
                 fecha.atTime(23, 59, 59)

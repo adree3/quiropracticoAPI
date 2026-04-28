@@ -3,6 +3,9 @@ package com.example.quiropracticoapi.model;
 import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.TipoServicio;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,11 +19,16 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Entity
 @Table(name = "servicios")
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Servicio extends BaseAuditEntity implements SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_servicio")
     private Integer idServicio;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @Column(name = "nombre_servicio", nullable = false, length = 150)
     private String nombreServicio;

@@ -2,6 +2,9 @@ package com.example.quiropracticoapi.model;
 
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,11 +19,16 @@ import java.time.LocalDateTime;
 @Table(name = "auditoria", indexes = {
     @Index(name = "idx_auditoria_fecha", columnList = "fechaHora")
 })
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Auditoria {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idAuditoria;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @Column(nullable = false)
     private LocalDateTime fechaHora;

@@ -20,14 +20,17 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "usuarios")
+@Table(name = "usuarios", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"username", "clinica_id"})
+})
+@org.hibernate.annotations.Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Usuario extends BaseAuditEntity implements UserDetails, SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")
     private Integer idUsuario;
 
-    @Column(name = "username", nullable = false, unique = true, length = 50)
+    @Column(name = "username", nullable = false, length = 50)
     private String username;
 
     @JsonIgnore
@@ -40,6 +43,10 @@ public class Usuario extends BaseAuditEntity implements UserDetails, SoftDeletab
     @Enumerated(EnumType.STRING)
     @Column(name = "rol", nullable = false)
     private Rol rol;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @Column(name = "activo", nullable = false)
     private boolean activo= true;

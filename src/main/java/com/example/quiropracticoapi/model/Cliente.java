@@ -1,6 +1,9 @@
 package com.example.quiropracticoapi.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,11 +21,16 @@ import java.time.LocalDateTime;
 @Table(name = "clientes", indexes = {
     @Index(name = "idx_cliente_activo", columnList = "activo")
 })
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Cliente extends BaseAuditEntity implements SoftDeletable, Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
     private Integer idCliente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;

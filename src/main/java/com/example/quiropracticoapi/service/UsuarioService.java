@@ -13,8 +13,10 @@ public interface UsuarioService {
     void recoverUser(Integer id);
     void unlockUser(Integer id);
     void lockUser(Integer id);
-    UsuarioDto getMe(String username);
-    void updatePassword(String username, String currentPassword, String newPassword);
+    UsuarioDto getMe(String usernameOrId);
+    UsuarioDto getMeById(Integer id);
+    void updatePassword(String usernameOrId, String currentPassword, String newPassword);
+    void updatePasswordById(Integer id, String currentPassword, String newPassword);
     
     /** Sube la foto a R2 y actualiza el usuario */
     String uploadFotoPerfil(Integer idUsuario, org.springframework.web.multipart.MultipartFile file);

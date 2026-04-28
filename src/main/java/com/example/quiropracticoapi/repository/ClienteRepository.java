@@ -108,14 +108,17 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
            "(SELECT MAX(ct2.fecha_hora_inicio) FROM citas ct2 WHERE ct2.id_cliente = c.id_cliente AND ct2.estado = 'completada') as ultimaCita " +
            "FROM clientes c " +
            "WHERE (:activo IS NULL OR c.activo = :activo) " +
-           "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%)",
+           "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%) " +
+           "AND c.clinica_id = :clinicaId",
            countQuery = "SELECT COUNT(*) FROM clientes c " +
                         "WHERE (:activo IS NULL OR c.activo = :activo) " +
-                        "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%)",
+                        "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%) " +
+                        "AND c.clinica_id = :clinicaId",
            nativeQuery = true)
     Page<ClienteDetalleProjection> findClientesOptimized(
         @Param("activo") Boolean activo,
         @Param("texto") String texto,
+        @Param("clinicaId") Long clinicaId,
         Pageable pageable
     );
 

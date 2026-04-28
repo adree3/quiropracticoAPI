@@ -17,6 +17,8 @@ import com.example.quiropracticoapi.repository.CitaRepository;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.GrupoFamiliarRepository;
 import com.example.quiropracticoapi.service.ClienteService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class ClienteServiceImpl implements ClienteService {
+    private static final Logger log = LoggerFactory.getLogger(ClienteServiceImpl.class);
     private final ClienteRepository clienteRepository;
     private final ClienteMapper clienteMapper;
     private final GrupoFamiliarRepository grupoFamiliarRepository;
@@ -162,9 +165,12 @@ public class ClienteServiceImpl implements ClienteService {
             return clientesPage.map(this::enrichClienteDto);
         }
 
+        Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+
+        log.info("[DEBUG-TENANT] Servicio: ClienteServiceImpl | TenantContext: {} | Texto: {}", tenantId, texto);
         // Búsqueda normal optimizada (Sin N+1)
         Page<ClienteDetalleProjection> projectionPage = clienteRepository.findClientesOptimized(
-            activo, texto, pageable
+            activo, texto, tenantId, pageable
         );
 
         return projectionPage.map(p -> {

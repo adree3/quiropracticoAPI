@@ -3,6 +3,9 @@ package com.example.quiropracticoapi.model;
 import com.example.quiropracticoapi.model.Auditable;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,12 +19,17 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Entity
 @Table(name = "bonos_activos")
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class BonoActivo extends BaseAuditEntity implements Auditable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_bono_activo")
     private Integer idBonoActivo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

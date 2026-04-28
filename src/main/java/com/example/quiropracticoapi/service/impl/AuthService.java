@@ -4,6 +4,7 @@ import com.example.quiropracticoapi.dto.auth.AuthResponse;
 import com.example.quiropracticoapi.dto.auth.LoginRequest;
 import com.example.quiropracticoapi.dto.auth.RegisterRequest;
 import com.example.quiropracticoapi.model.Usuario;
+import com.example.quiropracticoapi.model.enums.Rol;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,12 +16,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -88,8 +91,14 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
+        if (request.getUsername().contains("|")) {
+            throw new IllegalArgumentException("El nombre de usuario no puede contener el carácter '|'");
+        }
         Usuario user = new Usuario();
         user.setUsername(request.getUsername());
+        if (request.getRol() == Rol.super_admin) {
+            throw new IllegalArgumentException("No se puede registrar un usuario con rol de super_admin desde la interfaz.");
+        }
         user.setNombreCompleto(request.getNombreCompleto());
         user.setRol(request.getRol());
         user.setActivo(true);
@@ -119,14 +128,36 @@ public class AuthService {
         String clientIp = getClientIp(httpRequest);
         checkRateLimit(clientIp);
 
-        Usuario user = usuarioRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario o contraseña incorrectos"));
 
-        // El authenticationManager.authenticate lanzará LockedException si isAccountNonLocked() es falso
+        Usuario user = null;
+        
+        // 1. Busca al usuario en la clínica solicitada
+        if (request.getClinicaId() != null) {
+            user = usuarioRepository.findByUsernameAndClinicaIdClinica(request.getUsername(), request.getClinicaId()).orElse(null);
+        }
+        
+        // 2. Si no lo encuentra, hace fallback buscando si es super_admin
+        if (user == null) {
+            user = usuarioRepository.findByUsernameAndRol(request.getUsername(), Rol.super_admin).orElse(null);
+        }
+
+        // 3. Si ninguna de las dos consultas devuelve un usuario
+        if (user == null) {
+            registerFailedAttempt(clientIp);
+            throw new BadCredentialsException("Credenciales incorrectas o el usuario no pertenece a esta clínica");
+        }
+
+        // 2. Comprobar si ya está bloqueado
+        if (user.isCuentaBloqueada()) {
+            throw new LockedException("Cuenta bloqueada por seguridad. Contacte con un administrador.");
+        }
+
         try {
+            String principalToAuthenticate = "ID|" + user.getIdUsuario();
+            
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            request.getUsername(),
+                            principalToAuthenticate,
                             request.getPassword()
                     )
             );
@@ -140,7 +171,26 @@ public class AuthService {
             user.setUltimaConexion(LocalDateTime.now());
             usuarioRepository.save(user);
 
-            String jwtToken = jwtService.generateToken(user);
+            // 3. Decidir qué clinicaId va al JWT según jerarquía de roles
+            java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
+            Long clinicaIdParaToken;
+
+            if (user.getRol() == Rol.super_admin) {
+                // Super Admin: el request manda. Si no hay, modo sistema (0 = sin filtro tenant).
+                clinicaIdParaToken = request.getClinicaId() != null ? request.getClinicaId() : 0L;
+            } else {
+                // Usuario normal: validar que el clinicaId del request coincida con el de la DB.
+                Long clinicaDelUsuario = user.getClinica() != null ? user.getClinica().getIdClinica() : null;
+                if (request.getClinicaId() != null && !request.getClinicaId().equals(clinicaDelUsuario)) {
+                    throw new BadCredentialsException("Credenciales incorrectas o el usuario no pertenece a esta clínica");
+                }
+                clinicaIdParaToken = clinicaDelUsuario;
+            }
+
+            if (clinicaIdParaToken != null) {
+                extraClaims.put("clinicaId", clinicaIdParaToken);
+            }
+            String jwtToken = jwtService.generateToken(extraClaims, user);
 
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.LOGIN,
@@ -155,9 +205,6 @@ public class AuthService {
                     .nombre(user.getNombreCompleto())
                     .build();
 
-        } catch (LockedException e) {
-            // El usuario ya está bloqueado lógicamente
-            throw new LockedException("Cuenta bloqueada por seguridad. Contacte con un administrador.");
         } catch (BadCredentialsException e) {
             registerFailedAttempt(clientIp);
             

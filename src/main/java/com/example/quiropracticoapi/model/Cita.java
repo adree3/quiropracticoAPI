@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.quiropracticoapi.model.Auditable;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,6 +23,7 @@ import java.time.LocalDateTime;
     @Index(name = "idx_cita_fechas_estado", columnList = "fecha_hora_inicio, fecha_hora_fin, estado"),
     @Index(name = "idx_cita_estado", columnList = "estado")
 })
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Cita extends BaseAuditEntity implements SoftDeletable, Auditable {
 
     @Id
@@ -36,6 +40,10 @@ public class Cita extends BaseAuditEntity implements SoftDeletable, Auditable {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_quiropractico", nullable = false)
     private Usuario quiropractico;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     @Column(name = "fecha_hora_inicio", nullable = false)
     private LocalDateTime fechaHoraInicio;

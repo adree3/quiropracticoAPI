@@ -97,8 +97,9 @@ public class UsuarioController {
      */
     @GetMapping("/quiros")
     public ResponseEntity<List<UsuarioDto>> getQuiropracticos() {
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
         return ResponseEntity.ok()
-                .body(usuarioRepository.findByRol(Rol.quiropráctico)
+                .body(usuarioRepository.findByRolAndClinicaIdClinica(Rol.quiropráctico, clinicaId)
                     .stream()
                     .map(u -> {
                         UsuarioDto dto = new UsuarioDto();
@@ -117,8 +118,8 @@ public class UsuarioController {
      */
     @GetMapping("/quiros-activos")
     public ResponseEntity<List<UsuarioDto>> getQuiropracticosActivos() {
-
-        List<Usuario> quiros = usuarioRepository.findQuiropracticosActivos();
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        List<Usuario> quiros = usuarioRepository.findQuiropracticosActivos(clinicaId);
 
         List<UsuarioDto> dtos = quiros.stream()
                 .map(usuario -> {
@@ -158,20 +159,23 @@ public class UsuarioController {
      */
     @GetMapping("/bloqueados/count")
     public ResponseEntity<Long> countBlocked() {
-        return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrueAndActivoTrue());
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        return ResponseEntity.ok(usuarioRepository.countByCuentaBloqueadaTrueAndActivoTrueAndRolNotAndClinicaIdClinica(Rol.super_admin, clinicaId));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UsuarioDto> getMe(java.security.Principal principal) {
-        return ResponseEntity.ok(usuarioService.getMe(principal.getName()));
+    public ResponseEntity<UsuarioDto> getMe(org.springframework.security.core.Authentication authentication) {
+        Usuario user = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(usuarioService.getMeById(user.getIdUsuario()));
     }
 
     @PutMapping("/me/password")
     public ResponseEntity<Void> updatePassword(
-            java.security.Principal principal,
+            org.springframework.security.core.Authentication authentication,
             @RequestBody PasswordChangeRequest request
     ) {
-        usuarioService.updatePassword(principal.getName(), request.getCurrentPassword(), request.getNewPassword());
+        Usuario user = (Usuario) authentication.getPrincipal();
+        usuarioService.updatePasswordById(user.getIdUsuario(), request.getCurrentPassword(), request.getNewPassword());
         return ResponseEntity.ok().build();
     }
 

@@ -4,6 +4,7 @@ import com.example.quiropracticoapi.dto.UsuarioDto;
 import com.example.quiropracticoapi.dto.auth.RegisterRequest;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.Usuario;
+import com.example.quiropracticoapi.model.enums.Rol;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import com.example.quiropracticoapi.service.UsuarioService;
@@ -20,34 +21,45 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
     private final com.example.quiropracticoapi.service.StorageService storageService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Autowired
-    public UsuarioServiceImpl(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder, AuditoriaServiceImpl auditoriaServiceImpl, com.example.quiropracticoapi.service.StorageService storageService) {
+    public UsuarioServiceImpl(UsuarioRepository usuarioRepository,
+                              PasswordEncoder passwordEncoder,
+                              AuditoriaServiceImpl auditoriaServiceImpl,
+                              com.example.quiropracticoapi.service.StorageService storageService, jakarta.persistence.EntityManager entityManager) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
         this.storageService = storageService;
+        this.entityManager = entityManager;
     }
 
     @Override
     public Page<UsuarioDto> getAllUsuarios(Boolean activo, Pageable pageable) {
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
         Page<Usuario> page;
         if (activo == null) {
-            page = usuarioRepository.findAll(pageable);
+            page = usuarioRepository.findByRolNotAndClinicaIdClinica(Rol.super_admin, clinicaId, pageable);
         } else {
-            page = usuarioRepository.findByActivo(activo, pageable);
+            page = usuarioRepository.findByActivoAndRolNotAndClinicaIdClinica(activo, Rol.super_admin, clinicaId, pageable);
         }
         return page.map(this::toDto);
     }
 
     @Override
     public UsuarioDto createUser(RegisterRequest request) {
-        if (usuarioRepository.existsByUsername(request.getUsername())) {
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        if (usuarioRepository.existsByUsernameAndClinicaIdClinica(request.getUsername(), clinicaId)) {
             throw new IllegalArgumentException("USERNAME_TAKEN");
         }
 
         Usuario user = new Usuario();
         user.setUsername(request.getUsername());
+        if (request.getRol() == Rol.super_admin) {
+            throw new IllegalArgumentException("No se puede asignar el rol de super_admin desde la interfaz.");
+        }
+
         user.setNombreCompleto(request.getNombreCompleto());
         user.setRol(request.getRol());
         user.setActivo(true);
@@ -81,6 +93,10 @@ public class UsuarioServiceImpl implements UsuarioService {
             cambioPassword = true;
             cambios += "Contraseña modificada. ";
         }
+        if (request.getRol() == Rol.super_admin && user.getRol() != Rol.super_admin) {
+            throw new IllegalArgumentException("No se puede asignar el rol de super_admin desde la interfaz.");
+        }
+
         user.setNombreCompleto(request.getNombreCompleto());
         user.setRol(request.getRol());
         Usuario guardado = usuarioRepository.save(user);
@@ -149,17 +165,51 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
-    public UsuarioDto getMe(String username) {
-        Usuario user = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+    public UsuarioDto getMe(String usernameOrId) {
+        // La obtención del perfil propio es GLOBAL. Usamos findByIdGlobal (Native Query)
+        // para saltarnos el filtro de Hibernate sin manipular la sesión.
+        Usuario user;
+        if (usernameOrId.startsWith("ID|")) {
+            Integer id = Integer.parseInt(usernameOrId.substring(3));
+            user = usuarioRepository.findByIdGlobal(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
+        } else {
+            // No permitimos búsqueda por username global por ambigüedad Multi-Tenant
+            throw new ResourceNotFoundException("Búsqueda global por username no permitida. Use ID.");
+        }
         return toDto(user);
     }
 
     @Override
-    public void updatePassword(String username, String currentPassword, String newPassword) {
-        Usuario user = usuarioRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+    public UsuarioDto getMeById(Integer id) {
+        Usuario user = usuarioRepository.findByIdGlobal(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
+        return toDto(user);
+    }
 
+    @Override
+    public void updatePassword(String usernameOrId, String currentPassword, String newPassword) {
+        Usuario user;
+        if (usernameOrId.startsWith("ID|")) {
+            Integer id = Integer.parseInt(usernameOrId.substring(3));
+            user = usuarioRepository.findByIdGlobal(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
+        } else {
+             throw new ResourceNotFoundException("Búsqueda global por username no permitida. Use ID.");
+        }
+
+        this.processPasswordChange(user, currentPassword, newPassword);
+    }
+
+    @Override
+    public void updatePasswordById(Integer id, String currentPassword, String newPassword) {
+        Usuario user = usuarioRepository.findByIdGlobal(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
+
+        this.processPasswordChange(user, currentPassword, newPassword);
+    }
+
+    private void processPasswordChange(Usuario user, String currentPassword, String newPassword) {
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new IllegalArgumentException("CONTRASEÑA_ACTUAL_INCORRECTA");
         }
@@ -168,16 +218,16 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuarioRepository.save(user);
 
         auditoriaServiceImpl.registrarAccion(
-                TipoAccion.EDITAR,
+                com.example.quiropracticoapi.model.enums.TipoAccion.EDITAR,
                 "USUARIO",
-                username,
+                user.getUsername(),
                 "El usuario cambió su propia contraseña."
         );
     }
 
     @Override
     public String uploadFotoPerfil(Integer idUsuario, org.springframework.web.multipart.MultipartFile file) {
-        Usuario user = usuarioRepository.findById(idUsuario)
+        Usuario user = usuarioRepository.findByIdGlobal(idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         String contentType = file.getContentType();
@@ -209,7 +259,7 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     public byte[] getFotoPerfil(Integer idUsuario) {
-        Usuario user = usuarioRepository.findById(idUsuario)
+        Usuario user = usuarioRepository.findByIdGlobal(idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         if (user.getFotoPerfilPath() == null || user.getFotoPerfilPath().isBlank()) {

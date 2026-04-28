@@ -3,6 +3,9 @@ package com.example.quiropracticoapi.model;
 import com.example.quiropracticoapi.model.enums.EstadoSubida;
 import com.example.quiropracticoapi.model.enums.TipoDocumento;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -19,6 +22,7 @@ import java.time.LocalDateTime;
     @Index(name = "idx_doc_estado", columnList = "estado_subida"),
     @Index(name = "idx_doc_tipo", columnList = "tipo_documento")
 })
+@Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class DocumentoCliente extends BaseAuditEntity {
 
     @Id
@@ -29,6 +33,10 @@ public class DocumentoCliente extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id", nullable = false)
+    private Clinica clinica;
 
     /** Nombre original del archivo para mostrar en la UI. Ej: "placa_espalda.jpg" */
     @Column(name = "nombre_original", nullable = false, length = 255)
