@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.example.quiropracticoapi.util.StoragePathBuilder;
 
 @Service
 public class UsuarioServiceImpl implements UsuarioService {
@@ -22,17 +23,21 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final AuditoriaServiceImpl auditoriaServiceImpl;
     private final com.example.quiropracticoapi.service.StorageService storageService;
     private final jakarta.persistence.EntityManager entityManager;
+    private final StoragePathBuilder storagePathBuilder;
 
     @Autowired
     public UsuarioServiceImpl(UsuarioRepository usuarioRepository,
                               PasswordEncoder passwordEncoder,
                               AuditoriaServiceImpl auditoriaServiceImpl,
-                              com.example.quiropracticoapi.service.StorageService storageService, jakarta.persistence.EntityManager entityManager) {
+                              com.example.quiropracticoapi.service.StorageService storageService, 
+                              jakarta.persistence.EntityManager entityManager,
+                              StoragePathBuilder storagePathBuilder) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
         this.storageService = storageService;
         this.entityManager = entityManager;
+        this.storagePathBuilder = storagePathBuilder;
     }
 
     @Override
@@ -241,7 +246,8 @@ public class UsuarioServiceImpl implements UsuarioService {
             extension = filename.substring(filename.lastIndexOf("."));
         }
         
-        String path = "usuarios/" + idUsuario + "/perfil/foto_perfil" + extension;
+        Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        String path = storagePathBuilder.buildFotoPerfilPath(clinicaId, idUsuario, extension);
 
         try {
             storageService.store(file, path);

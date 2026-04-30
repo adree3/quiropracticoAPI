@@ -27,7 +27,7 @@ CREATE TABLE `clinicas` (
 DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
   `id_usuario` INT NOT NULL AUTO_INCREMENT,
-  `username` VARCHAR(50) NOT NULL UNIQUE,
+  `username` VARCHAR(50) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL COMMENT 'Nunca guardar en texto plano (usar bcrypt)',
   `nombre_completo` VARCHAR(150) NOT NULL,
   `rol` ENUM('admin', 'quiropráctico', 'recepción') NOT NULL,
@@ -40,6 +40,7 @@ CREATE TABLE `usuarios` (
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `ultima_modificacion` DATETIME NULL,
   PRIMARY KEY (`id_usuario`),
+  UNIQUE KEY `unique_username_clinica` (`username`, `clinica_id`),
   CONSTRAINT `fk_usuario_clinica` FOREIGN KEY (`clinica_id`) REFERENCES `clinicas` (`id_clinica`)
 ) ENGINE=InnoDB;
 

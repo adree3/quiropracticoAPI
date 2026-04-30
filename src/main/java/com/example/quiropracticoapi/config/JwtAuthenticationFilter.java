@@ -79,6 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
         } catch (Exception e) {
             log.error("[DEBUG-AUTH] Error crítico en JwtAuthenticationFilter: ", e);

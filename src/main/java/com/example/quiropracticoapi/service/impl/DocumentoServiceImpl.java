@@ -13,9 +13,11 @@ import com.example.quiropracticoapi.model.enums.TipoDocumento;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.DocumentoClienteRepository;
 import com.example.quiropracticoapi.repository.CitaRepository;
+import com.example.quiropracticoapi.config.TenantContext;
 import com.example.quiropracticoapi.repository.PagoRepository;
 import com.example.quiropracticoapi.service.DocumentoService;
 import com.example.quiropracticoapi.service.StorageService;
+import com.example.quiropracticoapi.util.StoragePathBuilder;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,9 +28,13 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DocumentoServiceImpl implements DocumentoService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentoServiceImpl.class);
 
     private final DocumentoClienteRepository documentoRepository;
     private final ClienteRepository clienteRepository;
@@ -36,6 +42,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     private final PagoRepository pagoRepository;
     private final StorageService storageService;
     private final AuditoriaServiceImpl auditoriaService;
+    private final StoragePathBuilder storagePathBuilder;
     private final Tika tika = new Tika();
 
     @Autowired
@@ -44,13 +51,15 @@ public class DocumentoServiceImpl implements DocumentoService {
                                 CitaRepository citaRepository,
                                 PagoRepository pagoRepository,
                                 StorageService storageService,
-                                AuditoriaServiceImpl auditoriaService) {
+                                AuditoriaServiceImpl auditoriaService,
+                                StoragePathBuilder storagePathBuilder) {
         this.documentoRepository = documentoRepository;
         this.clienteRepository = clienteRepository;
         this.citaRepository = citaRepository;
         this.pagoRepository = pagoRepository;
         this.storageService = storageService;
         this.auditoriaService = auditoriaService;
+        this.storagePathBuilder = storagePathBuilder;
     }
 
     @Override
@@ -103,27 +112,11 @@ public class DocumentoServiceImpl implements DocumentoService {
         // 3. Definir Path Dinámico R2 (Protección GDPR e Historización Contable)
         String extension = getExtension(file.getOriginalFilename());
         String path;
+        Long clinicaId = TenantContext.getTenantId();
 
         if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
-            String year = String.valueOf(docGuardado.getFechaCreacion().getYear());
-            String month = String.format("%02d", docGuardado.getFechaCreacion().getMonthValue());
-            // Formato blindado: facturacion/{anno}/{mes}/{idCliente}_{idDocumento}.ext
-            path = String.format("facturacion/%s/%s/%d_%d%s", 
-                    year, month, idCliente, docGuardado.getIdDocumento(), extension);
+            path = storagePathBuilder.buildFacturacionPath(clinicaId, idCliente, docGuardado.getIdDocumento(), extension, docGuardado.getFechaCreacion());
         } else {
-            String carpeta;
-            if (tipo == TipoDocumento.RADIOGRAFIA || tipo == TipoDocumento.RESONANCIA) {
-                carpeta = "pruebas_medicas";
-            } else if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
-                carpeta = "facturacion";
-            } else if (tipo == TipoDocumento.CONSENTIMIENTO_LOPD || tipo == TipoDocumento.CONSENTIMIENTO_TRATAMIENTO) {
-                carpeta = "consentimientos";
-            } else if (tipo == TipoDocumento.INFORME_MEDICO) {
-                carpeta = "informes";
-            } else {
-                carpeta = "documentos";
-            }
-
             // Nomenclatura semántica específica
             String subject;
             if (tipo == TipoDocumento.RADIOGRAFIA || tipo == TipoDocumento.RESONANCIA) {
@@ -151,17 +144,24 @@ public class DocumentoServiceImpl implements DocumentoService {
                 baseName = String.format("%s_%d", subject, docGuardado.getIdDocumento());
             }
             
-            path = String.format("clientes/%d/%s/%s%s", idCliente, carpeta, baseName, extension);
+            if (tipo == TipoDocumento.RADIOGRAFIA || tipo == TipoDocumento.RESONANCIA) {
+                path = storagePathBuilder.buildPruebasMedicasPath(clinicaId, idCliente, baseName, extension);
+            } else if (tipo == TipoDocumento.CONSENTIMIENTO_LOPD || tipo == TipoDocumento.CONSENTIMIENTO_TRATAMIENTO) {
+                path = storagePathBuilder.buildConsentimientosPath(clinicaId, idCliente, baseName, extension);
+            } else if (tipo == TipoDocumento.INFORME_MEDICO) {
+                path = storagePathBuilder.buildInformesPath(clinicaId, idCliente, baseName, extension);
+            } else {
+                path = storagePathBuilder.buildDocumentosGenericosPath(clinicaId, idCliente, baseName, extension);
+            }
             
             // Actualizar el nombre que verá el usuario en Flutter para ser descriptivo
             docGuardado.setNombreOriginal(baseName + extension);
         }
 
         try {
-            storageService.store(file, path);
-            
-            // 4. Procesamiento dual (Miniatura en RAM) si el documento principal es Gráfico
+            // 4. Procesamiento dual (Miniatura en RAM) ANTES de consumir el stream principal
             if (detectedMimeType != null && detectedMimeType.startsWith("image/")) {
+                String thumbPath = getThumbPath(path);
                 try {
                     java.io.ByteArrayOutputStream thumbOs = new java.io.ByteArrayOutputStream();
                     net.coobird.thumbnailator.Thumbnails.of(file.getInputStream())
@@ -170,12 +170,16 @@ public class DocumentoServiceImpl implements DocumentoService {
                             .outputQuality(0.9)
                             .toOutputStream(thumbOs);
                     
-                    String thumbPath = getThumbPath(path);
                     storageService.storeBytes(thumbOs.toByteArray(), thumbPath, "image/jpeg");
                 } catch (Exception e) {
-                    System.err.println("Aviso: No se pudo generar la miniatura para " + file.getOriginalFilename());
+                    log.error("Error generando miniatura para el archivo {}. Ejecutando Fallback de seguridad.", file.getOriginalFilename(), e);
+                    // Fallback: Si ImageIO falla (ej. .webp u otro formato no soportado/corrupto), subimos el original como miniatura
+                    storageService.storeBytes(file.getBytes(), thumbPath, file.getContentType());
                 }
             }
+            
+            // Subida del archivo principal (Ahora sí, consumimos el stream final)
+            storageService.store(file, path);
             
             // 5. Éxito: Actualizar a ACTIVO
             docGuardado.setPathArchivo(path);
@@ -242,6 +246,9 @@ public class DocumentoServiceImpl implements DocumentoService {
         doc.setActivo(false);
         doc.setFechaEliminacionLogica(LocalDateTime.now());
         documentoRepository.save(doc);
+        
+        // Comentario de Compliance RGPD: Se hace SOLO borrado lógico. 
+        // No se llama a r2StorageService.delete(...) para mantener registro histórico.
         
         auditoriaService.registrarAccion(TipoAccion.ELIMINAR_LOGICO, "DOCUMENTO", 
                 idDocumento.toString(), "Documento marcado como inactivo: " + doc.getNombreOriginal());
