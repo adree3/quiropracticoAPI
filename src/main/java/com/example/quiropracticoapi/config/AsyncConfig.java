@@ -31,17 +31,21 @@ public class AsyncConfig implements AsyncConfigurer {
     private static class SecurityContextTaskDecorator implements TaskDecorator {
         @Override
         public Runnable decorate(Runnable runnable) {
-            // Se ejecuta en el hilo principal antes de lanzar el asíncrono
+            // Se captura en el hilo principal antes de lanzar el asíncrono
             SecurityContext securityContext = SecurityContextHolder.getContext();
+            Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
             
             return () -> {
                 try {
-                    // Ya en el nuevo hilo, configuramos el SecurityContext
+                    // Ya en el nuevo hilo, restauramos ambos contextos
                     SecurityContextHolder.setContext(securityContext);
+                    if (tenantId != null) {
+                        com.example.quiropracticoapi.config.TenantContext.setTenantId(tenantId);
+                    }
                     runnable.run();
                 } finally {
-                    // Limpiamos siempre
                     SecurityContextHolder.clearContext();
+                    com.example.quiropracticoapi.config.TenantContext.clear();
                 }
             };
         }

@@ -192,6 +192,11 @@ public class AuthService {
             }
             String jwtToken = jwtService.generateToken(extraClaims, user);
 
+            // Establecer TenantContext para que la auditoría asíncrona tenga el clinicaId
+            if (clinicaIdParaToken != null && clinicaIdParaToken != 0L) {
+                com.example.quiropracticoapi.config.TenantContext.setTenantId(clinicaIdParaToken);
+            }
+
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.LOGIN,
                     "SESION",
@@ -215,6 +220,10 @@ public class AuthService {
             if (nuevosIntentos >= maxIntentos) {
                 user.setCuentaBloqueada(true);
                 usuarioRepository.save(user);
+                // Establecer TenantContext para la auditoría del bloqueo
+                if (user.getClinica() != null) {
+                    com.example.quiropracticoapi.config.TenantContext.setTenantId(user.getClinica().getIdClinica());
+                }
                 auditoriaServiceImpl.registrarAccion(
                         TipoAccion.BLOQUEADO,
                         "USUARIO",

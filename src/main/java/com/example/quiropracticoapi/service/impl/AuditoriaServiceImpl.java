@@ -1,13 +1,11 @@
 package com.example.quiropracticoapi.service.impl;
-
-
 import com.example.quiropracticoapi.model.Auditoria;
+import com.example.quiropracticoapi.model.Clinica;
 import com.example.quiropracticoapi.model.Usuario;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.AuditoriaRepository;
 import com.example.quiropracticoapi.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -102,7 +100,16 @@ public class AuditoriaServiceImpl {
                 Usuario u = usuarioRepository.findByUsername(username).orElse(null);
                 if (u != null) idUsuario = u.getIdUsuario();
             }
+            // Obtener el tenantId para asignar la clínica
+            Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+            Clinica clinicaRef = null;
+            if (tenantId != null) {
+                clinicaRef = new Clinica();
+                clinicaRef.setIdClinica(tenantId);
+            }
+
             Auditoria log = Auditoria.builder()
+                    .clinica(clinicaRef)
                     .fechaHora(LocalDateTime.now())
                     .idUsuarioResponsable(idUsuario)
                     .usernameResponsable(username)

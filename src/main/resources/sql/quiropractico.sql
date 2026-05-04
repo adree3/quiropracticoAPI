@@ -13,7 +13,13 @@ DROP TABLE IF EXISTS `clinicas`;
 CREATE TABLE `clinicas` (
   `id_clinica` BIGINT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(100) NOT NULL,
+  `cif_nif` VARCHAR(20) NULL,
+  `telefono` VARCHAR(20) NULL,
+  `email_contacto` VARCHAR(100) NULL,
   `direccion` VARCHAR(255) NULL,
+  `duracion_cita_minutos` INT NOT NULL DEFAULT 30,
+  `limite_almacenamiento_bytes` BIGINT NOT NULL DEFAULT 5368709120,
+  `almacenamiento_usado_bytes` BIGINT NOT NULL DEFAULT 0,
   `activa` TINYINT(1) NOT NULL DEFAULT 1,
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `ultima_modificacion` DATETIME NULL,
