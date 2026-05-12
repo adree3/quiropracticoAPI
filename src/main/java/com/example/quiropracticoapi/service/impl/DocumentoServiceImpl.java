@@ -1,5 +1,4 @@
 package com.example.quiropracticoapi.service.impl;
-
 import com.example.quiropracticoapi.dto.DocumentoDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.exception.StorageException;
@@ -14,6 +13,9 @@ import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.DocumentoClienteRepository;
 import com.example.quiropracticoapi.repository.CitaRepository;
 import com.example.quiropracticoapi.config.TenantContext;
+import com.example.quiropracticoapi.exception.StorageQuotaExceededException;
+import com.example.quiropracticoapi.model.Clinica;
+import com.example.quiropracticoapi.repository.ClinicaRepository;
 import com.example.quiropracticoapi.repository.PagoRepository;
 import com.example.quiropracticoapi.service.DocumentoService;
 import com.example.quiropracticoapi.service.StorageService;
@@ -23,7 +25,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +44,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     private final StorageService storageService;
     private final AuditoriaServiceImpl auditoriaService;
     private final StoragePathBuilder storagePathBuilder;
+    private final ClinicaRepository clinicaRepository;
     private final Tika tika = new Tika();
 
     @Autowired
@@ -52,7 +54,8 @@ public class DocumentoServiceImpl implements DocumentoService {
                                 PagoRepository pagoRepository,
                                 StorageService storageService,
                                 AuditoriaServiceImpl auditoriaService,
-                                StoragePathBuilder storagePathBuilder) {
+                                StoragePathBuilder storagePathBuilder,
+                                ClinicaRepository clinicaRepository) {
         this.documentoRepository = documentoRepository;
         this.clienteRepository = clienteRepository;
         this.citaRepository = citaRepository;
@@ -60,10 +63,10 @@ public class DocumentoServiceImpl implements DocumentoService {
         this.storageService = storageService;
         this.auditoriaService = auditoriaService;
         this.storagePathBuilder = storagePathBuilder;
+        this.clinicaRepository = clinicaRepository;
     }
 
     @Override
-    @Transactional
     public DocumentoDto subirDocumento(Integer idCliente, MultipartFile file, TipoDocumento tipo, Integer idCita, Integer idPago, String notas) {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
@@ -91,10 +94,20 @@ public class DocumentoServiceImpl implements DocumentoService {
             }
         }
 
-        // 1. Validación de seguridad (MIME Type real)
+        // Paso 1: Pre-Check de Cuota (Uso de findById normal, sin bloqueos)
+        Long clinicaId = TenantContext.getTenantId();
+        Clinica clinica = clinicaRepository.findById(clinicaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Clínica no encontrada"));
+
+        long nuevoTamanyo = clinica.getAlmacenamientoUsadoBytes() + file.getSize();
+        if (nuevoTamanyo > clinica.getLimiteAlmacenamientoBytes()) {
+            throw new StorageQuotaExceededException("Límite de almacenamiento superado. No se puede subir el archivo.");
+        }
+
+        // Validación de seguridad (MIME Type real)
         String detectedMimeType = detectSafeMimeType(file);
         
-        // 2. Crear registro PENDIENTE en BD (Inicio Saga)
+        // Crear registro inicial en BD
         DocumentoCliente doc = new DocumentoCliente();
         doc.setCliente(cliente);
         doc.setCita(cita);
@@ -104,15 +117,14 @@ public class DocumentoServiceImpl implements DocumentoService {
         doc.setTipoDocumento(tipo);
         doc.setMimeType(detectedMimeType);
         doc.setTamanyoBytes(file.getSize());
-        doc.setEstadoSubida(EstadoSubida.ACTIVO); // Directo a activo para simplificar si no hay saga asíncrona real
+        doc.setEstadoSubida(EstadoSubida.ACTIVO); // Estado tentativo
         doc.setFechaCreacion(LocalDateTime.now());
         
         DocumentoCliente docGuardado = documentoRepository.save(doc);
 
-        // 3. Definir Path Dinámico R2 (Protección GDPR e Historización Contable)
+        // Definir Path Dinámico R2
         String extension = getExtension(file.getOriginalFilename());
         String path;
-        Long clinicaId = TenantContext.getTenantId();
 
         if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
             path = storagePathBuilder.buildFacturacionPath(clinicaId, idCliente, docGuardado.getIdDocumento(), extension, docGuardado.getFechaCreacion());
@@ -154,12 +166,12 @@ public class DocumentoServiceImpl implements DocumentoService {
                 path = storagePathBuilder.buildDocumentosGenericosPath(clinicaId, idCliente, baseName, extension);
             }
             
-            // Actualizar el nombre que verá el usuario en Flutter para ser descriptivo
             docGuardado.setNombreOriginal(baseName + extension);
         }
 
+        long tamanyoThumbnail = 0;
         try {
-            // 4. Procesamiento dual (Miniatura en RAM) ANTES de consumir el stream principal
+            // Paso 2: Operaciones de Red y Procesamiento (FUERA de transacción global)
             if (detectedMimeType != null && detectedMimeType.startsWith("image/")) {
                 String thumbPath = getThumbPath(path);
                 try {
@@ -170,18 +182,26 @@ public class DocumentoServiceImpl implements DocumentoService {
                             .outputQuality(0.9)
                             .toOutputStream(thumbOs);
                     
-                    storageService.storeBytes(thumbOs.toByteArray(), thumbPath, "image/jpeg");
+                    byte[] thumbBytes = thumbOs.toByteArray();
+                    tamanyoThumbnail = thumbBytes.length;
+                    storageService.storeBytes(thumbBytes, thumbPath, "image/jpeg");
                 } catch (Exception e) {
                     log.error("Error generando miniatura para el archivo {}. Ejecutando Fallback de seguridad.", file.getOriginalFilename(), e);
                     // Fallback: Si ImageIO falla (ej. .webp u otro formato no soportado/corrupto), subimos el original como miniatura
-                    storageService.storeBytes(file.getBytes(), thumbPath, file.getContentType());
+                    byte[] originalBytes = file.getBytes();
+                    tamanyoThumbnail = originalBytes.length;
+                    storageService.storeBytes(originalBytes, thumbPath, file.getContentType());
                 }
             }
             
-            // Subida del archivo principal (Ahora sí, consumimos el stream final)
+            // Subida principal a R2 (Red lenta)
             storageService.store(file, path);
+
+            // Paso 3: Post-Update Atómico de Cuota
+            long tamanyoTotalSubido = file.getSize() + tamanyoThumbnail;
+            clinicaRepository.incrementarAlmacenamiento(clinicaId, tamanyoTotalSubido);
             
-            // 5. Éxito: Actualizar a ACTIVO
+            // Éxito: Actualizar registro final
             docGuardado.setPathArchivo(path);
             docGuardado.setEstadoSubida(EstadoSubida.ACTIVO);
             documentoRepository.save(docGuardado);
@@ -250,6 +270,8 @@ public class DocumentoServiceImpl implements DocumentoService {
         // Comentario de Compliance RGPD: Se hace SOLO borrado lógico. 
         // No se llama a r2StorageService.delete(...) para mantener registro histórico.
         
+        // Tarea 3: Política Estricta de Borrado Lógico (Mantenimiento de Cuota)
+        // INFO: No se descuenta la cuota de almacenamiento porque el borrado es lógico y el archivo físico persiste en R2.
         auditoriaService.registrarAccion(TipoAccion.ELIMINAR_LOGICO, "DOCUMENTO", 
                 idDocumento.toString(), "Documento marcado como inactivo: " + doc.getNombreOriginal());
     }

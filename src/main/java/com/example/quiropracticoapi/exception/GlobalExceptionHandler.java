@@ -140,4 +140,14 @@ public class GlobalExceptionHandler {
         );
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
+
+    // Manejar el exceso de almacenamiento (Devolver 413, payload_too_large)
+    @ExceptionHandler(StorageQuotaExceededException.class)
+    public ResponseEntity<Map<String, String>> handleStorageQuotaExceededException(StorageQuotaExceededException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "Payload Too Large");
+        error.put("message", ex.getMessage());
+        // Devolvemos estrictamente un 413 para que Flutter lance el QuotaExceededDialog
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(error);
+    }
 }
