@@ -322,11 +322,18 @@ public class CitaServiceImpl implements CitaService {
         BonoActivo bonoAfectado = null;
         if (estadoAnterior == EstadoCita.completada && nuevoEstado != EstadoCita.completada) {
             limpiarFirmaYJustificante(cita);
-            
-            // Solo devolvemos la sesión si el nuevo estado es CANCELADA o AUSENTE
-            if (nuevoEstado == EstadoCita.cancelada || nuevoEstado == EstadoCita.ausente) {
-                bonoAfectado = devolverSesionBonoSiAplica(cita);
-            }
+        }
+
+        // Si pasa a CANCELADA o AUSENTE (y antes no lo era), devolver sesión
+        if ((nuevoEstado == EstadoCita.cancelada || nuevoEstado == EstadoCita.ausente) &&
+            (estadoAnterior != EstadoCita.cancelada && estadoAnterior != EstadoCita.ausente)) {
+            bonoAfectado = devolverSesionBonoSiAplica(cita);
+        }
+
+        // Si pasa de CANCELADA o AUSENTE a activa (PROGRAMADA o COMPLETADA), re-consumir sesión
+        if ((estadoAnterior == EstadoCita.cancelada || estadoAnterior == EstadoCita.ausente) &&
+            (nuevoEstado == EstadoCita.programada || nuevoEstado == EstadoCita.completada)) {
+            bonoAfectado = reconsumirSesionBonoSiAplica(cita);
         }
 
         Cita citaGuardada = citaRepository.save(cita);
@@ -378,6 +385,36 @@ public class CitaServiceImpl implements CitaService {
         return null;
     }
 
+    private BonoActivo reconsumirSesionBonoSiAplica(Cita cita) {
+        if (cita.getIdBonoPreasignado() != null && consumoBonoRepository.findByCitaIdCita(cita.getIdCita()).isEmpty()) {
+            BonoActivo bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
+            if (bono != null && bono.getSesionesRestantes() > 0) {
+                int saldoAnterior = bono.getSesionesRestantes();
+                int nuevoSaldo = saldoAnterior - 1;
+                bono.setSesionesRestantes(nuevoSaldo);
+                BonoActivo bonoGuardado = bonoActivoRepository.save(bono);
+
+                ConsumoBono consumo = new ConsumoBono();
+                consumo.setCita(cita);
+                consumo.setBonoActivo(bonoGuardado);
+                consumo.setSesionesRestantesSnapshot(nuevoSaldo);
+                consumoBonoRepository.save(consumo);
+
+                cita.setIdBonoPreasignado(null);
+                
+                auditoriaServiceImpl.registrarAccion(
+                    TipoAccion.CONSUMO,
+                    "BONO",
+                    bonoGuardado.getIdBonoActivo().toString(),
+                    "Sesión re-consumida por cambio de estado en Cita ID: " + cita.getIdCita() +
+                        ". Saldo: " + saldoAnterior + " -> " + nuevoSaldo
+                );
+                return bonoGuardado;
+            }
+        }
+        return null;
+    }
+
     @Override
     @Transactional
     public CitaDto updateCita(Integer idCita, CitaRequestDto request) {
@@ -407,15 +444,24 @@ public class CitaServiceImpl implements CitaService {
         if (request.getEstado() != null) {
             try {
                 EstadoCita nuevoEst = EstadoCita.valueOf(request.getEstado().toLowerCase());
+                
                 // Si cambia de COMPLETADA a otra cosa, limpiar firma y justificante
                 if (estadoAnterior == EstadoCita.completada && nuevoEst != EstadoCita.completada) {
                     limpiarFirmaYJustificante(cita);
-                    
-                    // Solo devolvemos la sesión si el nuevo estado es CANCELADA o AUSENTE
-                    if (nuevoEst == EstadoCita.cancelada || nuevoEst == EstadoCita.ausente) {
-                        bonoAfectado = devolverSesionBonoSiAplica(cita);
-                    }
                 }
+
+                // Si pasa a CANCELADA o AUSENTE (y antes no lo era), devolver sesión
+                if ((nuevoEst == EstadoCita.cancelada || nuevoEst == EstadoCita.ausente) &&
+                    (estadoAnterior != EstadoCita.cancelada && estadoAnterior != EstadoCita.ausente)) {
+                    bonoAfectado = devolverSesionBonoSiAplica(cita);
+                }
+
+                // Si pasa de CANCELADA o AUSENTE a activa (PROGRAMADA o COMPLETADA), re-consumir sesión
+                if ((estadoAnterior == EstadoCita.cancelada || estadoAnterior == EstadoCita.ausente) &&
+                    (nuevoEst == EstadoCita.programada || nuevoEst == EstadoCita.completada)) {
+                    bonoAfectado = reconsumirSesionBonoSiAplica(cita);
+                }
+
                 cita.setEstado(nuevoEst);
             } catch (IllegalArgumentException e) {
                 log.error("Error al establecer nuevo estado: {}", e.getMessage());
@@ -612,31 +658,9 @@ public class CitaServiceImpl implements CitaService {
         Cita citaGuardada = citaRepository.save(cita);
 
         // 2. Si la cita fue revertida y tiene bono pre-asignado, re-consumir la sesión
-        if (citaGuardada.getIdBonoPreasignado() != null && consumoBonoRepository.findByCitaIdCita(idCita).isEmpty()) {
-            BonoActivo bono = bonoActivoRepository.findById(citaGuardada.getIdBonoPreasignado()).orElse(null);
-            if (bono != null && bono.getSesionesRestantes() > 0) {
-                int saldoAnterior = bono.getSesionesRestantes();
-                int nuevoSaldo = saldoAnterior - 1;
-                bono.setSesionesRestantes(nuevoSaldo);
-                BonoActivo bonoGuardado = bonoActivoRepository.save(bono);
-
-                ConsumoBono consumo = new ConsumoBono();
-                consumo.setCita(citaGuardada);
-                consumo.setBonoActivo(bonoGuardado);
-                consumo.setSesionesRestantesSnapshot(nuevoSaldo);
-                consumoBonoRepository.save(consumo);
-
-                citaGuardada.setIdBonoPreasignado(null);
-                citaGuardada = citaRepository.save(citaGuardada);
-
-                auditoriaServiceImpl.registrarAccion(
-                    TipoAccion.CONSUMO,
-                    "BONO",
-                    bonoGuardado.getIdBonoActivo().toString(),
-                    "Sesión re-consumida al firmar Cita ID: " + idCita +
-                        ". Saldo: " + saldoAnterior + " -> " + nuevoSaldo
-                );
-            }
+        BonoActivo bonoAfectado = reconsumirSesionBonoSiAplica(citaGuardada);
+        if (bonoAfectado != null) {
+            citaGuardada = citaRepository.save(citaGuardada);
         }
         
         // 3. Regenerar/Generar PDF (Lógica centralizada) - null porque se busca solo
