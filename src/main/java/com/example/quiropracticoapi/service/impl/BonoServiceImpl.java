@@ -8,6 +8,7 @@ import com.example.quiropracticoapi.model.Cita;
 import com.example.quiropracticoapi.model.ConsumoBono;
 import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
+import com.example.quiropracticoapi.repository.CitaRepository;
 import com.example.quiropracticoapi.repository.ConsumoBonoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,14 +26,16 @@ public class BonoServiceImpl implements BonoService {
     private final BonoActivoRepository bonoActivoRepository;
     private final ConsumoBonoRepository consumoBonoRepository;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
+    private final CitaRepository citaRepository;
 
     @Autowired
     public BonoServiceImpl(BonoActivoRepository bonoActivoRepository,
                            ConsumoBonoRepository consumoBonoRepository,
-                           AuditoriaServiceImpl auditoriaServiceImpl) {
+                           AuditoriaServiceImpl auditoriaServiceImpl, CitaRepository citaRepository) {
         this.bonoActivoRepository = bonoActivoRepository;
         this.consumoBonoRepository = consumoBonoRepository;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
+        this.citaRepository = citaRepository;
     }
 
     @Override
@@ -147,7 +150,7 @@ public class BonoServiceImpl implements BonoService {
     @Override
     @Transactional(readOnly = true)
     public List<ConsumoBonoDto> getHistorialBono(Integer idBonoActivo) {
-        return consumoBonoRepository.findByBonoActivoIdBonoActivo(idBonoActivo).stream()
+        List<ConsumoBonoDto> consumos = consumoBonoRepository.findByBonoActivoIdBonoActivo(idBonoActivo).stream()
                 .map(consumo -> {
                     ConsumoBonoDto dto = new ConsumoBonoDto();
                     dto.setIdConsumo(consumo.getIdConsumo());
@@ -172,11 +175,35 @@ public class BonoServiceImpl implements BonoService {
                     }
                     return dto;
                 })
-                .sorted((a, b) -> {
-                    if (b.getFechaConsumo() == null || a.getFechaConsumo() == null) return 0;
-                    return b.getFechaConsumo().compareTo(a.getFechaConsumo());
-                })
                 .collect(Collectors.toList());
+
+        // Añado las citas "legacy" que tenian este bono preasignado pero no generaron consumo_bono
+        List<com.example.quiropracticoapi.model.Cita> citasLegacy = citaRepository.findByIdBonoPreasignado(idBonoActivo);
+        for (com.example.quiropracticoapi.model.Cita cita : citasLegacy) {
+            boolean yaExiste = consumos.stream().anyMatch(c -> c.getIdCita() != null && c.getIdCita().equals(cita.getIdCita()));
+            if (!yaExiste) {
+                ConsumoBonoDto dto = new ConsumoBonoDto();
+                dto.setIdConsumo(-cita.getIdCita()); // Id ficticio negativo
+                dto.setFechaConsumo(cita.getFechaHoraInicio());
+                dto.setSesionesRestantesSnapshot(0);
+                dto.setIdCita(cita.getIdCita());
+                dto.setFechaCita(cita.getFechaHoraInicio());
+                if (cita.getEstado() != null) dto.setEstadoCita(cita.getEstado().name());
+                if (cita.getQuiropractico() != null) dto.setNombreQuiropractico(cita.getQuiropractico().getNombreCompleto());
+                if (cita.getCliente() != null) {
+                    dto.setIdPaciente(cita.getCliente().getIdCliente());
+                    dto.setNombrePaciente(cita.getCliente().getNombre());
+                }
+                consumos.add(dto);
+            }
+        }
+
+        consumos.sort((a, b) -> {
+            if (b.getFechaConsumo() == null || a.getFechaConsumo() == null) return 0;
+            return b.getFechaConsumo().compareTo(a.getFechaConsumo());
+        });
+
+        return consumos;
     }
 
     @Override

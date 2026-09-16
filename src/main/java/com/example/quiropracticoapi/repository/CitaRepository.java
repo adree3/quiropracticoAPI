@@ -125,6 +125,8 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             @Param("pacienteId") Integer pacienteId,
             @Param("propietarioId") Integer propietarioId);
 
+    List<Cita> findByIdBonoPreasignado(Integer idBonoPreasignado);
+
     /**
      * Busca todas las citas filtrando por nombre/apellidos de usuario, teléfono, estado y rango de fechas.
      */
