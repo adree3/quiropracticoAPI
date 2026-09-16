@@ -1,5 +1,9 @@
 package com.example.quiropracticoapi.exception;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.NOT_FOUND)
 public class StorageException extends RuntimeException {
 
     public StorageException(String message) {

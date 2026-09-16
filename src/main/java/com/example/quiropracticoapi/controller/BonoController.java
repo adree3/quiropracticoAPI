@@ -7,6 +7,7 @@ import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.service.BonoService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/bonos")
 @Tag(name = "Gestión de Bonos", description = "Consultar saldo y bonos activos")
