@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface CitaRepository extends JpaRepository<Cita, Integer> {
@@ -20,6 +21,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param pageable paginacion
      * @return pagina de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findByClienteIdClienteOrderByFechaHoraInicioDesc(Integer clienteId, Pageable pageable);
 
     /**
@@ -29,6 +31,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param pageable paginacion
      * @return pagina de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findByClienteIdClienteAndEstadoOrderByFechaHoraInicioDesc(Integer clienteId, EstadoCita estado, Pageable pageable);
 
     @Query("SELECT c FROM Cita c WHERE " +
@@ -36,6 +39,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             "(:estado IS NULL OR c.estado = :estado) AND " +
             "(:fechaInicio IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
             "(:fechaFin IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findByClienteAndFiltros(
             @Param("idCliente") Integer idCliente,
             @Param("estado") EstadoCita estado,
@@ -49,6 +53,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param clienteId identificador del cliente
      * @return lista de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     List<Cita> findByClienteIdClienteOrderByFechaHoraInicioDesc(Integer clienteId);
 
     /**
@@ -56,6 +61,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param quiropracticoId identificador del quiropráctico
      * @return lista de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     List<Cita> findByQuiropracticoIdUsuario( Integer quiropracticoId);
 
     /**
@@ -65,6 +71,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param fechaFin segunda fecha
      * @return lista de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     List<Cita> findByQuiropracticoIdUsuarioAndFechaHoraInicioBetween(Integer quiropracticoId, LocalDateTime fechaInicio, LocalDateTime fechaFin);
 
     /**
@@ -73,6 +80,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param fechaFin segunda fecha
      * @return lista de citas
      */
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     List<Cita> findByFechaHoraInicioBetween(LocalDateTime fechaInicio, LocalDateTime fechaFin);
 
     /**
@@ -125,6 +133,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             @Param("pacienteId") Integer pacienteId,
             @Param("propietarioId") Integer propietarioId);
 
+    @EntityGraph(attributePaths = {"quiropractico", "cliente"})
     List<Cita> findByIdBonoPreasignado(Integer idBonoPreasignado);
 
     /**
@@ -138,6 +147,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             "(:estado IS NULL OR c.estado = :estado) AND " +
             "(CAST(:fechaInicio AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
             "(CAST(:fechaFin AS java.time.LocalDateTime) IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findAllWithFilters(
             @Param("search") String search,
             @Param("estado") EstadoCita estado,

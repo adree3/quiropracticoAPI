@@ -603,10 +603,8 @@ public class CitaServiceImpl implements CitaService {
     }
 
     private void llenarInfoPago(Cita cita, CitaDto dto) {
-        var consumoOpt = consumoBonoRepository.findByCitaIdCita(cita.getIdCita());
-
-        if (consumoOpt.isPresent()) {
-            ConsumoBono consumo = consumoOpt.get();
+        if (cita.getConsumoBono() != null) {
+            ConsumoBono consumo = cita.getConsumoBono();
             BonoActivo bono = consumo.getBonoActivo();
             String nombreBono = bono.getServicioComprado().getNombreServicio();
 
@@ -625,21 +623,8 @@ public class CitaServiceImpl implements CitaService {
                 dto.setIdBonoCliente(bono.getCliente().getIdCliente());
             }
         } else if (cita.getIdBonoPreasignado() != null) {
-            // Mostrar bono pre-asignado (memoria) con el mismo formato que un consumo real
-            BonoActivo bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
-            if (bono != null) {
-                String nombreBono = bono.getServicioComprado().getNombreServicio();
-                String infoSaldo = " / quedan " + bono.getSesionesRestantes();
-
-                if (bono.getCliente().getIdCliente().equals(cita.getCliente().getIdCliente())) {
-                    dto.setInfoPago("Bono Propio (" + nombreBono + infoSaldo + ")");
-                } else {
-                    dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
-                }
-                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
-            } else {
-                dto.setInfoPago("Pago Directo / Sesión Suelta");
-            }
+            // No podemos consultar el repositorio en un bucle, así que indicamos que está preasignado.
+            dto.setInfoPago("Bono Preasignado (Pendiente)");
         } else {
             dto.setInfoPago("Pago Directo / Sesión Suelta");
         }

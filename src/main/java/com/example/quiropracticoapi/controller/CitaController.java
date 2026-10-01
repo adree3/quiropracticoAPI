@@ -97,6 +97,11 @@ public class CitaController {
             @RequestParam("desde") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam("hasta") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(value = "idQuiropractico", required = false) Integer idQuiropractico) {
+        
+        if (java.time.temporal.ChronoUnit.DAYS.between(desde, hasta) > 45) {
+            throw new IllegalArgumentException("El rango de fechas no puede superar los 45 días");
+        }
+
         List<CitaDto> citas = citaService.getCitasPorRango(desde, hasta, idQuiropractico);
         return ResponseEntity.ok(citas);
     }
