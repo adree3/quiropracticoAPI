@@ -1,7 +1,7 @@
 package com.example.quiropracticoapi.controller;
-
-import com.example.quiropracticoapi.dto.BalanceDto;
 import com.example.quiropracticoapi.dto.PagoDto;
+import com.example.quiropracticoapi.dto.PagoResponseDto;
+import com.example.quiropracticoapi.dto.PagosKpiDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
 import com.example.quiropracticoapi.service.PagoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,11 +9,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,26 +32,54 @@ public class PagoController {
     }
 
     /**
-     * Obtiene los pagos pagados o pendientes
-     * @param fechaInicio inicio del rango
-     * @param fechaFin fin del rango
-     * @param pagado indica si el pago esta pendiente o no
-     * @param page numero de pagina
-     * @param search buscador opcional para filtrado
-     * @param size numero de registros
-     * @return Page con los pagos
+     * Obtiene la lista de pagos paginada con filtrado dinámico en BD por fechas, estado y búsqueda.
      */
-    @Operation(summary = "Obtener lista de pagos (Paginada y Filtrada)", description = "Filtra por fechas, estado y búsqueda por texto (nombre/servicio)")
+    @Operation(summary = "Obtener lista de pagos (Paginada y Filtrada)", description = "Filtra por fechas, estado y búsqueda por texto con paginación pura en base de datos")
     @GetMapping
-    public ResponseEntity<Page<PagoDto>> getPagos(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
-            @RequestParam(defaultValue = "true") boolean pagado,
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+    public ResponseEntity<Page<PagoResponseDto>> getPagos(
+            @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
+            @RequestParam(value = "inicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam(value = "fin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin,
+            @RequestParam(value = "pagado", required = false) Boolean pagado,
+            @RequestParam(value = "search", required = false) String search,
+            @PageableDefault(size = 10, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(pagoService.getPagos(fechaInicio, fechaFin, pagado, search, page, size));
+        LocalDateTime desde = fechaInicio != null ? fechaInicio : inicio;
+        LocalDateTime hasta = fechaFin != null ? fechaFin : fin;
+        return ResponseEntity.ok(pagoService.getPagos(desde, hasta, pagado, search, pageable));
+    }
+
+    /**
+     * Obtiene los KPIs financieros calculados mediante agregaciones puras en base de datos (SUM/COUNT).
+     */
+    @Operation(summary = "Obtener KPIs financieros", description = "Calcula métricas financieras agregadas en BD (cobrado, efectivo hoy, ventas bonos, deuda)")
+    @GetMapping("/kpis")
+    public ResponseEntity<PagosKpiDto> getKpis(
+            @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
+            @RequestParam(value = "inicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam(value = "fin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin
+    ) {
+        LocalDateTime desde = fechaInicio != null ? fechaInicio : inicio;
+        LocalDateTime hasta = fechaFin != null ? fechaFin : fin;
+        return ResponseEntity.ok(pagoService.getKpis(desde, hasta));
+    }
+
+    /**
+     * Endpoint legacy de balance, manteniendo retrocompatibilidad y enriquecido con métricas BD.
+     */
+    @Operation(summary = "Obtener balance financiero", description = "Devuelve totales cobrados y pendientes enriquecidos")
+    @GetMapping("/balance")
+    public ResponseEntity<PagosKpiDto> getBalance(
+            @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
+            @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin,
+            @RequestParam(value = "inicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam(value = "fin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin
+    ) {
+        LocalDateTime desde = fechaInicio != null ? fechaInicio : inicio;
+        LocalDateTime hasta = fechaFin != null ? fechaFin : fin;
+        return ResponseEntity.ok(pagoService.getKpis(desde, hasta));
     }
 
     @Operation(summary = "Obtener pagos de un cliente específico")
@@ -58,26 +88,6 @@ public class PagoController {
         return ResponseEntity.ok(pagoService.getPagosCliente(idCliente));
     }
 
-    /**
-     * Obtiene el total cobrado y el total pendiente
-     * @param fechaInicio inicio del rango
-     * @param fechaFin fin del rango
-     * @return el total cobrado y pendiente
-     */
-    @Operation(summary = "Obtener balance financiero", description = "Devuelve totales cobrados (en rango) y pendientes (globales)")
-    @GetMapping("/balance")
-    public ResponseEntity<BalanceDto> getBalance(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaFin
-    ) {
-        return ResponseEntity.ok(pagoService.getBalance(fechaInicio, fechaFin));
-    }
-
-    /**
-     * Registra el pago y asigna el saldo de sesiones al cliente
-     * @param request datos de la venta
-     * @return el estado de la venta
-     */
     @Operation(summary = "Vender un bono", description = "Registra el pago y asigna el saldo de sesiones al cliente.")
     @PostMapping("/venta-bono")
     public ResponseEntity<Void> venderBono(@Valid @RequestBody VentaBonoRequestDto request) {
@@ -85,22 +95,12 @@ public class PagoController {
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
-    /**
-     * Confirma que un pago se ha realizado
-     * @param id identificador del pago
-     * @return respuesta de la operacion
-     */
     @PutMapping("/{id}/confirmar")
     public ResponseEntity<Void> confirmarPago(@PathVariable Integer id) {
         pagoService.confirmarPago(id);
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Pone pendiente un pago
-     * @param id identificador del pago
-     * @return respuesta de la operacion
-     */
     @PutMapping("/{id}/pendiente")
     public ResponseEntity<Void> pendientePago(@PathVariable Integer id) {
         pagoService.pendientePago(id);

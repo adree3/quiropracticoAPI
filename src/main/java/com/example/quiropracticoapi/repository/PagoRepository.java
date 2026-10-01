@@ -1,14 +1,12 @@
 package com.example.quiropracticoapi.repository;
-
 import com.example.quiropracticoapi.model.Pago;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,75 +17,105 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
      * @param clienteId identificador del cliente
      * @return lista de pagos
      */
+    @EntityGraph(attributePaths = {"cliente", "servicioPagado"})
     List<Pago> findByClienteIdCliente(Integer clienteId);
 
     /**
-     * Busca todos los pagos indicados realizados en un rango de fechas
-     * @param inicio fecha y hora de inicio
-     * @param fin fecha y hora de fin
-     * @return pageable de pagos
+     * Búsqueda paginada y filtrada con parámetros dinámicos procesada nativamente en MySQL.
+     * Incorpora EntityGraph para eliminar cualquier problema de N+1 sobre cliente y servicio.
      */
-    Page<Pago> findByFechaCreacionBetweenAndPagadoOrderByFechaCreacionDesc(LocalDateTime inicio, LocalDateTime fin, boolean pagado, Pageable pageable);
-
-    /**
-     * Busca los pagos pendientes
-     * @return lista de pagos pendientes
-     */
-    Page<Pago> findByPagadoFalseOrderByFechaCreacionDesc(Pageable pageable);
-
-
-    /**
-     * Obtiene un page de pagos ya pagados en un rango de fechas y opcionalmente
-     * con un texto de filtrado por nombre completo o servicio
-     * @param inicio rango inicio
-     * @param fin rango fin
-     * @param search filtrado opcional
-     * @param pageable -
-     * @return un page de los pagos pagados filtrados
-     */
-    @Query("SELECT p FROM Pago p WHERE p.pagado = true " +
-            "AND p.fechaCreacion BETWEEN :inicio AND :fin " +
-            "AND (:search IS NULL OR :search = '' OR (" +
-            "   LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "   LOWER(p.cliente.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "   LOWER(p.servicioPagado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))" +
-            "))")
-    Page<Pago> findHistorialWithSearch(
-            @Param("inicio") LocalDateTime inicio,
-            @Param("fin") LocalDateTime fin,
+    @EntityGraph(attributePaths = {"cliente", "servicioPagado"})
+    @Query("SELECT p FROM Pago p " +
+           "LEFT JOIN p.servicioPagado s " +
+           "WHERE (:pagado IS NULL OR p.pagado = :pagado) " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
+           "AND (:search IS NULL OR :search = '' OR (" +
+           "   LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "   LOWER(p.cliente.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "   LOWER(s.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))" +
+           "))")
+    Page<Pago> findAllWithFilters(
+            @Param("fechaInicio") LocalDateTime fechaInicio,
+            @Param("fechaFin") LocalDateTime fechaFin,
+            @Param("pagado") Boolean pagado,
             @Param("search") String search,
             Pageable pageable);
 
-    /**
-     * Obtiene un page de pagos pendientes con el buscador opcional
-     * @param search buscador opcional
-     * @param pageable -
-     * @return un page de pagos pendientes filtrados
-     */
-    @Query("SELECT p FROM Pago p WHERE p.pagado = false " +
-            "AND (:search IS NULL OR :search = '' OR (" +
-            "   LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "   LOWER(p.cliente.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "   LOWER(p.servicioPagado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))" +
-            "))")
-    Page<Pago> findPendientesWithSearch(
-            @Param("search") String search,
-            Pageable pageable);
+    // ==========================================
+    // CÁLCULO DE KPIS AGREGADOS EN BASE DE DATOS
+    // ==========================================
 
-    /**
-     * Suma los ingresos de un rango
-     * @param inicio fecha inicio
-     * @param fin fecha fin
-     * @return la suma de los ingresos
-     */
-    @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.pagado = true AND p.fechaCreacion BETWEEN :inicio AND :fin")
+    // 1. KPI: Total Cobrado y Recuento de Ventas (Rango Dinámico)
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
+           "WHERE p.pagado = true " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Double sumTotalCobrado(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    @Query("SELECT COUNT(p) FROM Pago p " +
+           "WHERE p.pagado = true " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Long countTotalCobrado(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    // 2. KPI: Efectivo en Rango Dinámico
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
+           "WHERE p.pagado = true " +
+           "AND p.metodoPago = com.example.quiropracticoapi.model.enums.MetodoPago.efectivo " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Double sumEfectivoRango(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    @Query("SELECT COUNT(p) FROM Pago p " +
+           "WHERE p.pagado = true " +
+           "AND p.metodoPago = com.example.quiropracticoapi.model.enums.MetodoPago.efectivo " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Long countEfectivoRango(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    // 3. KPI: Ventas en Bonos (Rango Dinámico)
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
+           "LEFT JOIN p.servicioPagado s " +
+           "WHERE p.pagado = true " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
+           "AND (s.tipo = com.example.quiropracticoapi.model.enums.TipoServicio.bono " +
+           "     OR LOWER(s.nombreServicio) LIKE '%bono%')")
+    Double sumVentasBonos(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    @Query("SELECT COUNT(p) FROM Pago p " +
+           "LEFT JOIN p.servicioPagado s " +
+           "WHERE p.pagado = true " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
+           "AND (s.tipo = com.example.quiropracticoapi.model.enums.TipoServicio.bono " +
+           "     OR LOWER(s.nombreServicio) LIKE '%bono%')")
+    Long countVentasBonos(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    // 4. KPI: Deuda Pendiente (Global y por Rango Dinámico)
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false")
+    Double sumDeudaPendienteGlobal();
+
+    @Query("SELECT COUNT(p) FROM Pago p WHERE p.pagado = false")
+    Long countDeudaPendienteGlobal();
+
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
+           "WHERE p.pagado = false " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Double sumDeudaPendiente(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    @Query("SELECT COUNT(p) FROM Pago p " +
+           "WHERE p.pagado = false " +
+           "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
+           "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
+    Long countDeudaPendiente(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
+
+    // Compatibilidad legacy
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = true AND p.fechaCreacion BETWEEN :inicio AND :fin")
     Double sumTotalCobradoEnRango(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
-    /**
-     * Suma la deuda global
-     * @return la suma de los pagos pendientes
-     */
-    @Query("SELECT COALESCE(SUM(p.monto), 0) FROM Pago p WHERE p.pagado = false")
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false")
     Double sumTotalPendienteGlobal();
 }
-
