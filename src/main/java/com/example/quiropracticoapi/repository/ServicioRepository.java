@@ -30,10 +30,6 @@ public interface ServicioRepository extends JpaRepository<Servicio, Integer> {
      */
     List<Servicio> findByActivoTrueAndTipo(TipoServicio tipo);
 
-    /**
-     * Busca los servicios activos
-     * @param activo indica si el servicio esta activo o no
-     * @return lista de servicios
-     */
-    Page<Servicio> findByActivo(Boolean activo, Pageable pageable);
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Servicio s WHERE :activo IS NULL OR s.activo = :activo")
+    Page<Servicio> findServiciosPaginados(@org.springframework.data.repository.query.Param("activo") Boolean activo, Pageable pageable);
 }

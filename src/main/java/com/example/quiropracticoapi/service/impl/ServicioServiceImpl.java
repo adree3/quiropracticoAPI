@@ -27,13 +27,22 @@ public class ServicioServiceImpl implements ServicioService {
         this.auditoriaServiceImpl = auditoriaServiceImpl;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     @Override
-    public Page<Servicio> getAllServicios(Boolean activo, Pageable pageable) {
-        if (activo != null) {
-            return servicioRepository.findByActivo(activo, pageable);
-        } else {
-            return servicioRepository.findAll(pageable);
-        }
+    public Page<com.example.quiropracticoapi.dto.ServicioResponseDto> getAllServicios(Boolean activo, Pageable pageable) {
+        return servicioRepository.findServiciosPaginados(activo, pageable)
+                .map(this::mapToResponseDto);
+    }
+
+    private com.example.quiropracticoapi.dto.ServicioResponseDto mapToResponseDto(Servicio servicio) {
+        return new com.example.quiropracticoapi.dto.ServicioResponseDto(
+                servicio.getIdServicio().longValue(),
+                servicio.getNombreServicio(),
+                servicio.getPrecio().doubleValue(),
+                servicio.getTipo().name(),
+                servicio.getSesionesIncluidas(),
+                servicio.isActivo()
+        );
     }
 
     @Override

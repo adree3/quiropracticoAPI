@@ -42,19 +42,10 @@ public class ServicioController {
      * @return page de servicios
      */
     @GetMapping
-    public ResponseEntity<Page<Servicio>> getAll(
+    public ResponseEntity<Page<com.example.quiropracticoapi.dto.ServicioResponseDto>> getAll(
             @RequestParam(required = false) Boolean activo,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "nombreServicio") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction
+            @org.springframework.data.web.PageableDefault(page = 0, size = 10, sort = "nombreServicio", direction = Sort.Direction.ASC) Pageable pageable
     ) {
-        Sort sort = direction.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
-
         return ResponseEntity.ok(servicioService.getAllServicios(activo, pageable));
     }
 
