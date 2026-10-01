@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.ConsumoBono;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
@@ -15,6 +16,7 @@ public interface ConsumoBonoRepository extends JpaRepository<ConsumoBono, Intege
      * @param bonoActivoId identificador del bono
      * @return lista de usos del bono
      */
+    @EntityGraph(attributePaths = {"cita", "cita.quiropractico", "cita.cliente"})
     List<ConsumoBono> findByBonoActivoIdBonoActivo(Integer bonoActivoId);
 
     /**

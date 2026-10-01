@@ -1,6 +1,6 @@
 package com.example.quiropracticoapi.service.impl;
 
-import com.example.quiropracticoapi.dto.BonoHistoricoDto;
+import com.example.quiropracticoapi.dto.BonoResponseDto;
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.model.BonoActivo;
@@ -151,6 +151,9 @@ public class BonoServiceImpl implements BonoService {
     @Transactional(readOnly = true)
     public List<ConsumoBonoDto> getHistorialBono(Integer idBonoActivo) {
         List<ConsumoBonoDto> consumos = consumoBonoRepository.findByBonoActivoIdBonoActivo(idBonoActivo).stream()
+                .filter(consumo -> consumo.getCita() != null && 
+                        (consumo.getCita().getEstado() == com.example.quiropracticoapi.model.enums.EstadoCita.programada || 
+                         consumo.getCita().getEstado() == com.example.quiropracticoapi.model.enums.EstadoCita.completada))
                 .map(consumo -> {
                     ConsumoBonoDto dto = new ConsumoBonoDto();
                     dto.setIdConsumo(consumo.getIdConsumo());
@@ -160,6 +163,10 @@ public class BonoServiceImpl implements BonoService {
                     if (consumo.getCita() != null) {
                         dto.setIdCita(consumo.getCita().getIdCita());
                         dto.setFechaCita(consumo.getCita().getFechaHoraInicio());
+                        dto.setFechaHoraFin(consumo.getCita().getFechaHoraFin());
+                        dto.setNotasRecepcion(consumo.getCita().getNotasRecepcion());
+                        dto.setFirmada(consumo.getCita().isFirmada());
+                        
                         if (consumo.getCita().getEstado() != null) {
                             dto.setEstadoCita(consumo.getCita().getEstado().name());
                         }
@@ -170,7 +177,8 @@ public class BonoServiceImpl implements BonoService {
                         // Obtener nombre del paciente de la cita
                         if (consumo.getCita().getCliente() != null) {
                             dto.setIdPaciente(consumo.getCita().getCliente().getIdCliente());
-                            dto.setNombrePaciente(consumo.getCita().getCliente().getNombre());
+                            String apellidos = consumo.getCita().getCliente().getApellidos();
+                            dto.setNombrePaciente(consumo.getCita().getCliente().getNombre() + (apellidos != null && !apellidos.isBlank() ? " " + apellidos : ""));
                         }
                     }
                     return dto;
@@ -180,6 +188,10 @@ public class BonoServiceImpl implements BonoService {
         // Añado las citas "legacy" que tenian este bono preasignado pero no generaron consumo_bono
         List<com.example.quiropracticoapi.model.Cita> citasLegacy = citaRepository.findByIdBonoPreasignado(idBonoActivo);
         for (com.example.quiropracticoapi.model.Cita cita : citasLegacy) {
+            if (cita.getEstado() != com.example.quiropracticoapi.model.enums.EstadoCita.programada && 
+                cita.getEstado() != com.example.quiropracticoapi.model.enums.EstadoCita.completada) {
+                continue;
+            }
             boolean yaExiste = consumos.stream().anyMatch(c -> c.getIdCita() != null && c.getIdCita().equals(cita.getIdCita()));
             if (!yaExiste) {
                 ConsumoBonoDto dto = new ConsumoBonoDto();
@@ -188,33 +200,41 @@ public class BonoServiceImpl implements BonoService {
                 dto.setSesionesRestantesSnapshot(0);
                 dto.setIdCita(cita.getIdCita());
                 dto.setFechaCita(cita.getFechaHoraInicio());
+                dto.setFechaHoraFin(cita.getFechaHoraFin());
+                dto.setNotasRecepcion(cita.getNotasRecepcion());
+                dto.setFirmada(cita.isFirmada());
+                
                 if (cita.getEstado() != null) dto.setEstadoCita(cita.getEstado().name());
                 if (cita.getQuiropractico() != null) dto.setNombreQuiropractico(cita.getQuiropractico().getNombreCompleto());
                 if (cita.getCliente() != null) {
                     dto.setIdPaciente(cita.getCliente().getIdCliente());
-                    dto.setNombrePaciente(cita.getCliente().getNombre());
+                    String apellidos = cita.getCliente().getApellidos();
+                    dto.setNombrePaciente(cita.getCliente().getNombre() + (apellidos != null && !apellidos.isBlank() ? " " + apellidos : ""));
                 }
                 consumos.add(dto);
             }
         }
 
-        consumos.sort((a, b) -> {
-            if (b.getFechaConsumo() == null || a.getFechaConsumo() == null) return 0;
-            return b.getFechaConsumo().compareTo(a.getFechaConsumo());
-        });
+        consumos.sort(java.util.Comparator.comparing(
+                ConsumoBonoDto::getFechaCita, 
+                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())
+        ));
 
         return consumos;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<BonoHistoricoDto> getHistorialBonos(String search, Pageable pageable) {
-        return bonoActivoRepository.findAllWithFilters(search, pageable).map(this::toHistoricoDto);
+    public Page<BonoResponseDto> getHistorialBonos(String search, Pageable pageable) {
+        return bonoActivoRepository.findAllWithFiltersAndFutureAppointments(search, pageable).map(this::toResponseDto);
     }
 
-    private BonoHistoricoDto toHistoricoDto(BonoActivo b) {
+    private BonoResponseDto toResponseDto(Object[] result) {
+        BonoActivo b = (BonoActivo) result[0];
+        Boolean tieneProximaCita = (Boolean) result[1];
+        
         String nombreCompleto = b.getCliente().getNombre() + " " + b.getCliente().getApellidos();
-        BonoHistoricoDto dto = new BonoHistoricoDto();
+        BonoResponseDto dto = new BonoResponseDto();
         dto.setIdBonoActivo(b.getIdBonoActivo());
         dto.setIdCliente(b.getCliente().getIdCliente());
         dto.setNombreCliente(nombreCompleto);
@@ -224,6 +244,18 @@ public class BonoServiceImpl implements BonoService {
         dto.setFechaCompra(b.getFechaCompra());
         dto.setFechaCaducidad(b.getFechaCaducidad());
         dto.setPagado(b.getPagoOrigen() != null && b.getPagoOrigen().isPagado());
+        dto.setTieneProximaCita(tieneProximaCita != null && tieneProximaCita);
+        
+        if (b.getPagoOrigen() != null) {
+            dto.setIdPago(b.getPagoOrigen().getIdPago());
+            if (b.getPagoOrigen().getMonto() != null) {
+                dto.setMonto(b.getPagoOrigen().getMonto().doubleValue());
+            }
+            if (b.getPagoOrigen().getMetodoPago() != null) {
+                dto.setMetodoPago(b.getPagoOrigen().getMetodoPago().name());
+            }
+        }
+        
         return dto;
     }
 }

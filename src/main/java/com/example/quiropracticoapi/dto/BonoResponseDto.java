@@ -4,7 +4,7 @@ import lombok.Data;
 import java.time.LocalDate;
 
 @Data
-public class BonoHistoricoDto {
+public class BonoResponseDto {
     private Integer idBonoActivo;
     private Integer idCliente;
     private String nombreCliente;
@@ -14,4 +14,8 @@ public class BonoHistoricoDto {
     private LocalDate fechaCompra;
     private LocalDate fechaCaducidad;
     private boolean pagado;
+    private Boolean tieneProximaCita;
+    private Integer idPago;
+    private Double monto;
+    private String metodoPago;
 }

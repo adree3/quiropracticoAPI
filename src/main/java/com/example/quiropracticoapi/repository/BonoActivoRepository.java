@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.repository;
 import com.example.quiropracticoapi.model.BonoActivo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,10 +38,13 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
             ") ORDER BY b.fechaCompra ASC")
     List<BonoActivo> findBonosDisponiblesParaCliente(@Param("clienteId") Integer clienteId);
 
-    @Query("SELECT b FROM BonoActivo b WHERE " +
-            "(:search IS NULL OR " +
-            "LOWER(CONCAT(b.cliente.nombre, ' ', b.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "LOWER(b.servicioComprado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))) ")
-    Page<BonoActivo> findAllWithFilters(@Param("search") String search, Pageable pageable);
+    @EntityGraph(attributePaths = {"cliente", "servicioComprado", "pagoOrigen"})
+    @Query("SELECT b, " +
+           "(CASE WHEN EXISTS (SELECT c FROM Cita c WHERE c.cliente.idCliente = b.cliente.idCliente AND c.fechaHoraInicio > CURRENT_TIMESTAMP AND c.estado != com.example.quiropracticoapi.model.enums.EstadoCita.cancelada) THEN true ELSE false END) " +
+           "FROM BonoActivo b WHERE " +
+           "(:search IS NULL OR " +
+           "LOWER(CONCAT(b.cliente.nombre, ' ', b.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(b.servicioComprado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))) ")
+    Page<Object[]> findAllWithFiltersAndFutureAppointments(@Param("search") String search, Pageable pageable);
 }
 

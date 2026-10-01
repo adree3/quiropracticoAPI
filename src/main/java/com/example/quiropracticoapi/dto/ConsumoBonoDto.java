@@ -16,4 +16,7 @@ public class ConsumoBonoDto {
     private String nombreQuiropractico;
     private String nombrePaciente;
     private String estadoCita;
+    private LocalDateTime fechaHoraFin;
+    private String notasRecepcion;
+    private Boolean firmada;
 }

@@ -1,7 +1,7 @@
 package com.example.quiropracticoapi.controller;
 
 import com.example.quiropracticoapi.dto.BonoDto;
-import com.example.quiropracticoapi.dto.BonoHistoricoDto;
+import com.example.quiropracticoapi.dto.BonoResponseDto;
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.ConsumoBonoDto;
 import com.example.quiropracticoapi.repository.BonoActivoRepository;
@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -76,13 +79,13 @@ public class BonoController {
 
     /**
      * Obtiene todos los bonos vendidos en el sistema (Historial Global)
+     * Ordenado por idBonoActivo DESC para que el último bono vendido salga siempre el primero.
      */
     @GetMapping("/historial")
-    public ResponseEntity<Page<BonoHistoricoDto>> getHistorialGlobal(
+    public ResponseEntity<Page<BonoResponseDto>> getHistorialGlobal(
             @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "15") int size
+            @PageableDefault(page = 0, size = 30, sort = "idBonoActivo", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(bonoService.getHistorialBonos(search, PageRequest.of(page, size)));
+        return ResponseEntity.ok(bonoService.getHistorialBonos(search, pageable));
     }
 }

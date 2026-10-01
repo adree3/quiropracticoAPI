@@ -2,7 +2,7 @@ package com.example.quiropracticoapi.service;
 
 import com.example.quiropracticoapi.dto.BonoSeleccionDto;
 import com.example.quiropracticoapi.dto.ConsumoBonoDto;
-import com.example.quiropracticoapi.dto.BonoHistoricoDto;
+import com.example.quiropracticoapi.dto.BonoResponseDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,5 +21,5 @@ public interface BonoService {
 
     List<ConsumoBonoDto> getHistorialBono(Integer idBonoActivo);
 
-    Page<BonoHistoricoDto> getHistorialBonos(String search, Pageable pageable);
+    Page<BonoResponseDto> getHistorialBonos(String search, Pageable pageable);
 }
