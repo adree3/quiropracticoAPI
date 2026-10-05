@@ -24,6 +24,14 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
     @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findByClienteIdClienteOrderByFechaHoraInicioDesc(Integer clienteId, Pageable pageable);
 
+    long countByClienteIdClienteAndEstado(Integer idCliente, EstadoCita estado);
+
+    @Query("SELECT MAX(c.fechaHoraInicio) FROM Cita c WHERE c.cliente.idCliente = :idCliente AND c.estado = com.example.quiropracticoapi.model.enums.EstadoCita.completada")
+    java.time.LocalDateTime findUltimaCitaCompletadaFecha(@org.springframework.data.repository.query.Param("idCliente") Integer idCliente);
+
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
+    java.util.Optional<Cita> findFirstByClienteIdClienteAndEstadoAndFechaHoraInicioGreaterThanEqualOrderByFechaHoraInicioAsc(Integer idCliente, EstadoCita estado, java.time.LocalDateTime fecha);
+
     /**
      * Busca las citas de un clinete en especifico filtrando por estado
      * @param clienteId identificador del cliente
@@ -38,7 +46,8 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             "c.cliente.idCliente = :idCliente AND " +
             "(:estado IS NULL OR c.estado = :estado) AND " +
             "(:fechaInicio IS NULL OR c.fechaHoraInicio >= :fechaInicio) AND " +
-            "(:fechaFin IS NULL OR c.fechaHoraInicio <= :fechaFin)")
+            "(:fechaFin IS NULL OR c.fechaHoraInicio <= :fechaFin) " +
+            "ORDER BY c.fechaHoraInicio DESC")
     @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
     Page<Cita> findByClienteAndFiltros(
             @Param("idCliente") Integer idCliente,

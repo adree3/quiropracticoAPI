@@ -8,10 +8,13 @@ import java.util.List;
 
 @Repository
 public interface GrupoFamiliarRepository extends JpaRepository<GrupoFamiliar, Integer> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"beneficiario", "propietario"})
     List<GrupoFamiliar> findByPropietarioIdCliente(Integer idPropietario);
 
     // Ver quién me autoriza a mí (ej. De quién puede gastar el Hijo)
     List<GrupoFamiliar> findByBeneficiarioIdCliente(Integer idBeneficiario);
 
     boolean existsByPropietarioIdClienteAndBeneficiarioIdCliente(Integer idPropietario, Integer idBeneficiario);
+    
+    boolean existsByPropietarioIdCliente(Integer idPropietario);
 }

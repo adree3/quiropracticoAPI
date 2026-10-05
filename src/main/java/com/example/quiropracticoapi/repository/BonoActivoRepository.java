@@ -26,6 +26,8 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
      * @return lista de bonos con x sesiones
      */
     List<BonoActivo> findByClienteIdClienteAndSesionesRestantesGreaterThan(Integer clienteId, int sesiones);
+    
+    long countByClienteIdClienteAndSesionesRestantesGreaterThan(Integer clienteId, int sesiones);
 
     /**
      * Busca bonos disponibles para un cliente, suyos o de algun familiar
@@ -46,5 +48,12 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
            "LOWER(CONCAT(b.cliente.nombre, ' ', b.cliente.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "LOWER(b.servicioComprado.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))) ")
     Page<Object[]> findAllWithFiltersAndFutureAppointments(@Param("search") String search, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"cliente", "servicioComprado", "pagoOrigen"})
+    @Query("SELECT b, " +
+           "(CASE WHEN EXISTS (SELECT c FROM Cita c WHERE c.cliente.idCliente = b.cliente.idCliente AND c.fechaHoraInicio > CURRENT_TIMESTAMP AND c.estado != com.example.quiropracticoapi.model.enums.EstadoCita.cancelada) THEN true ELSE false END) " +
+           "FROM BonoActivo b WHERE b.cliente.idCliente = :clienteId " +
+           "ORDER BY b.idBonoActivo DESC")
+    List<Object[]> findByClienteIdWithFutureAppointments(@Param("clienteId") Integer clienteId);
 }
 

@@ -20,6 +20,11 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
     @EntityGraph(attributePaths = {"cliente", "servicioPagado"})
     List<Pago> findByClienteIdCliente(Integer clienteId);
 
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.cliente.idCliente = :idCliente AND p.pagado = false")
+    Double sumDeudaPendienteByClienteId(@Param("idCliente") Integer idCliente);
+
+    long countByClienteIdClienteAndPagadoFalse(Integer idCliente);
+
     /**
      * Búsqueda paginada y filtrada con parámetros dinámicos procesada nativamente en MySQL.
      * Incorpora EntityGraph para eliminar cualquier problema de N+1 sobre cliente y servicio.
@@ -31,8 +36,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
            "AND (:search IS NULL OR :search = '' OR (" +
-           "   LOWER(p.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "   LOWER(p.cliente.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "   LOWER(CONCAT(p.cliente.nombre, ' ', COALESCE(p.cliente.apellidos, ''))) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "   LOWER(s.nombreServicio) LIKE LOWER(CONCAT('%', :search, '%'))" +
            "))")
     Page<Pago> findAllWithFilters(

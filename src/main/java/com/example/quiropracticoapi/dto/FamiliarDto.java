@@ -14,4 +14,7 @@ public class FamiliarDto {
     private Integer idFamiliar;
     private String nombreCompleto;
     private String relacion;
+    private String telefono;
+    private String email;
+    private boolean activo;
 }

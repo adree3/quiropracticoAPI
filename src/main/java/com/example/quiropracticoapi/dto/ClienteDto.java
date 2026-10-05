@@ -25,4 +25,12 @@ public class ClienteDto {
     private Integer bonosActivos;
     private Boolean tieneFamiliares;
     private LocalDateTime ultimaCita;
+    
+    // Métricas del detalle
+    private Long citasCompletadas;
+    private Long citasCanceladas;
+    private Long citasAusentes;
+    private Double deudaPendiente;
+    private Long pagosPendientesCount;
+    private CitaDto proximaCita;
 }

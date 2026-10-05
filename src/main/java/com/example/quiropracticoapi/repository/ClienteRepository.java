@@ -37,56 +37,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      */
     Optional<Cliente> findByEmail (String email);
 
-    /**
-     * Busca por nombres, apellido o telefono
-     * @param texto información por la cual buscar
-     * @return una lista de clientes filtrados
-     */
-    @Query("SELECT c FROM Cliente c WHERE " +
-            "c.activo = true AND " +
-            "LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-            "LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-            "c.telefono LIKE CONCAT('%', :texto, '%')")
-    List<Cliente> searchGlobal(@Param("texto") String texto);
-
-    /**
-     * Lo mimo que el anterior pero ordenado alfabeticamente y por paginación
-     * @param texto información por el cual filtrar
-     * @param pageable la paginación
-     * @return devuelve un page de clientes filtrado
-     */
-    @Query("SELECT c FROM Cliente c WHERE " +
-            "c.activo = true AND " +
-            "(LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-            "LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-            "c.telefono LIKE CONCAT('%', :texto, '%')) " +
-            "ORDER BY c.nombre ASC, c.apellidos ASC")
-    Page<Cliente> searchGlobalPaged(@Param("texto") String texto, Pageable pageable);
-
-    /**
-     * Query unificada y flexible para búsqueda con múltiples filtros opcionales
-     * @param activo true/false para filtrar por estado, null para todos
-     * @param texto búsqueda global por nombre, apellido o teléfono, null o vacío para omitir
-     * @param ultimaCitaDesde fecha mínima de última cita completada, null para omitir
-     * @param pageable paginación y ordenamiento
-     * @return page de clientes que cumplen los criterios
-     */
-    @Query("SELECT DISTINCT c FROM Cliente c " +
-           "WHERE " +
-           "(:activo IS NULL OR c.activo = :activo) AND " +
-           "(:texto IS NULL OR :texto = '' OR " +
-           "  LOWER(c.nombre) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-           "  LOWER(c.apellidos) LIKE LOWER(CONCAT('%', :texto, '%')) OR " +
-           "  c.telefono LIKE CONCAT('%', :texto, '%')) AND " +
-           "(:ultimaCitaDesde IS NULL OR EXISTS (" +
-           "  SELECT 1 FROM Cita ct WHERE ct.cliente.idCliente = c.idCliente " +
-           "  AND ct.estado = 'completada' AND ct.fechaHoraInicio >= :ultimaCitaDesde))")
-    Page<Cliente> findClientesFiltered(
-        @Param("activo") Boolean activo,
-        @Param("texto") String texto,
-        @Param("ultimaCitaDesde") LocalDateTime ultimaCitaDesde,
-        Pageable pageable
-    );
 
     /**
      * Busca un cliente por estado
@@ -102,23 +52,26 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      */
     @Query(value = "SELECT c.id_cliente as idCliente, c.nombre as nombre, c.apellidos as apellidos, " +
            "c.email as email, c.telefono as telefono, c.activo as activo, c.fecha_alta as fecha_creacion, " +
-           "(SELECT COUNT(*) FROM citas ct WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'programada') as countCitasPendientes, " +
+           "(SELECT COUNT(*) FROM citas ct WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'programada' AND ct.fecha_hora_inicio >= NOW()) as countCitasPendientes, " +
            "(SELECT COUNT(*) FROM bonos_activos b WHERE b.id_cliente = c.id_cliente AND b.sesiones_restantes > 0) as countBonosActivos, " +
            "CAST(EXISTS(SELECT 1 FROM grupos_familiares g WHERE g.id_cliente_propietario = c.id_cliente) AS SIGNED) as tieneFamiliares, " +
            "(SELECT MAX(ct2.fecha_hora_inicio) FROM citas ct2 WHERE ct2.id_cliente = c.id_cliente AND ct2.estado = 'completada') as ultimaCita " +
            "FROM clientes c " +
            "WHERE (:activo IS NULL OR c.activo = :activo) " +
-           "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%) " +
-           "AND c.clinica_id = :clinicaId",
+           "AND (:texto IS NULL OR :texto = '' OR LOWER(CONCAT(c.nombre, ' ', COALESCE(c.apellidos, ''))) LIKE LOWER(CONCAT('%', :texto, '%')) OR c.telefono LIKE CONCAT('%', :texto, '%')) " +
+           "AND c.clinica_id = :clinicaId " +
+           "AND (CAST(:ultimaCitaDesde AS DATETIME) IS NULL OR EXISTS (SELECT 1 FROM citas ct3 WHERE ct3.id_cliente = c.id_cliente AND ct3.estado = 'completada' AND ct3.fecha_hora_inicio >= CAST(:ultimaCitaDesde AS DATETIME)))",
            countQuery = "SELECT COUNT(*) FROM clientes c " +
                         "WHERE (:activo IS NULL OR c.activo = :activo) " +
-                        "AND (:texto IS NULL OR :texto = '' OR c.nombre LIKE %:texto% OR c.apellidos LIKE %:texto% OR c.telefono LIKE %:texto%) " +
-                        "AND c.clinica_id = :clinicaId",
+                        "AND (:texto IS NULL OR :texto = '' OR LOWER(CONCAT(c.nombre, ' ', COALESCE(c.apellidos, ''))) LIKE LOWER(CONCAT('%', :texto, '%')) OR c.telefono LIKE CONCAT('%', :texto, '%')) " +
+                        "AND c.clinica_id = :clinicaId " +
+                        "AND (CAST(:ultimaCitaDesde AS DATETIME) IS NULL OR EXISTS (SELECT 1 FROM citas ct3 WHERE ct3.id_cliente = c.id_cliente AND ct3.estado = 'completada' AND ct3.fecha_hora_inicio >= CAST(:ultimaCitaDesde AS DATETIME)))",
            nativeQuery = true)
     Page<ClienteDetalleProjection> findClientesOptimized(
         @Param("activo") Boolean activo,
         @Param("texto") String texto,
         @Param("clinicaId") Long clinicaId,
+        @Param("ultimaCitaDesde") LocalDateTime ultimaCitaDesde,
         Pageable pageable
     );
 

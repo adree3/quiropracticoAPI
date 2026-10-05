@@ -17,11 +17,13 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
     /**
      * Devuelve los documentos activos de un cliente, ordenados por fecha descendente.
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente"})
     List<DocumentoCliente> findByClienteIdClienteAndActivoTrueOrderByFechaCreacionDesc(Integer idCliente);
 
     /**
      * Devuelve los documentos inactivos (en la papelera) de un cliente, ordenados por fecha descendente de borrado.
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente"})
     List<DocumentoCliente> findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(Integer idCliente);
     
     /**
