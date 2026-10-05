@@ -75,12 +75,18 @@ public class DocumentoServiceImpl implements DocumentoService {
         if (idCita != null) {
             cita = citaRepository.findById(idCita)
                     .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+            if (!cita.getCliente().getIdCliente().equals(idCliente)) {
+                throw new IllegalArgumentException("La cita no pertenece a este paciente");
+            }
         }
 
         Pago pago = null;
         if (idPago != null) {
             pago = pagoRepository.findById(idPago)
                     .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
+            if (!pago.getCliente().getIdCliente().equals(idCliente)) {
+                throw new IllegalArgumentException("El pago no pertenece a este paciente");
+            }
         }
 
         // Validación de unicidad: una cita solo puede tener 1 firma activa vinculada
@@ -262,6 +268,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public void eliminarDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
         
         doc.setActivo(false);
         doc.setFechaEliminacionLogica(LocalDateTime.now());
@@ -281,6 +290,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public DocumentoDto restaurarDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
         
         doc.setActivo(true);
         doc.setFechaEliminacionLogica(null);
@@ -317,6 +329,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public String obtenerUrlTemporal(Integer idDocumento, boolean download) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
 
         if (doc.getEstadoSubida() != EstadoSubida.ACTIVO || doc.getPathArchivo() == null) {
             throw new IllegalStateException("El documento no está listo para ser visualizado.");
@@ -332,6 +347,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public String obtenerUrlThumbnail(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
 
         if (doc.getEstadoSubida() != EstadoSubida.ACTIVO || doc.getPathArchivo() == null) {
             throw new IllegalStateException("El documento no está listo para ser visualizado.");
@@ -351,11 +369,17 @@ public class DocumentoServiceImpl implements DocumentoService {
     public DocumentoDto actualizarMetadatos(Integer idDocumento, Integer idCita, Integer idPago, String notas) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
 
         // Regla de negocio: Si ya tiene cita, no se puede cambiar (para mantener integridad de nombres/R2)
         if (idCita != null && doc.getCita() == null) {
             Cita cita = citaRepository.findById(idCita)
                     .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+            if (!cita.getCliente().getIdCliente().equals(doc.getCliente().getIdCliente())) {
+                throw new IllegalArgumentException("La cita no pertenece a este paciente");
+            }
             doc.setCita(cita);
             
             // Actualizamos el nombre original para que sea descriptivo en la UI
@@ -367,6 +391,9 @@ public class DocumentoServiceImpl implements DocumentoService {
         if (idPago != null && doc.getPago() == null) {
             Pago pago = pagoRepository.findById(idPago)
                     .orElseThrow(() -> new ResourceNotFoundException("Pago no encontrado"));
+            if (!pago.getCliente().getIdCliente().equals(doc.getCliente().getIdCliente())) {
+                throw new IllegalArgumentException("El pago no pertenece a este paciente");
+            }
             doc.setPago(pago);
             
             String extension = getExtension(doc.getNombreOriginal());
@@ -384,6 +411,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public DocumentoDto obtenerDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
         return mapToDto(doc);
     }
 
@@ -391,6 +421,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     public byte[] obtenerArchivoPuro(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
+        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
         
         if (doc.getPathArchivo() == null) {
             throw new StorageException("El archivo no tiene un path asociado");

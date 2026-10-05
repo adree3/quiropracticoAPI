@@ -138,8 +138,12 @@ public class ClienteController {
                             FamiliarDto dto = new FamiliarDto();
                             dto.setIdGrupo(g.getIdGrupo());
                             dto.setIdFamiliar(g.getBeneficiario().getIdCliente());
-                            dto.setNombreCompleto(g.getBeneficiario().getNombre() + " " + g.getBeneficiario().getApellidos());
+                            String apellidos = g.getBeneficiario().getApellidos();
+                            dto.setNombreCompleto(g.getBeneficiario().getNombre() + (apellidos != null ? " " + apellidos : ""));
                             dto.setRelacion(g.getRelacion());
+                            dto.setTelefono(g.getBeneficiario().getTelefono());
+                            dto.setEmail(g.getBeneficiario().getEmail());
+                            dto.setActivo(g.getBeneficiario().isActivo());
                             return dto;
                         })
                         .collect(Collectors.toList())
@@ -154,8 +158,8 @@ public class ClienteController {
     public ResponseEntity<List<ClienteDto>> searchClientes(
             @RequestParam("texto") String texto) {
 
-        List<ClienteDto> clientes = clienteService.searchClientesList(texto);
-        return ResponseEntity.ok(clientes);
+        Page<ClienteDto> resultados = clienteService.findClientesWithFilters(null, texto, null, org.springframework.data.domain.PageRequest.of(0, 50));
+        return ResponseEntity.ok(resultados.getContent());
     }
 
     /**
@@ -173,7 +177,7 @@ public class ClienteController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
 
-        Page<ClienteDto> resultados = clienteService.searchClientesPaged(texto, pageable);
+        Page<ClienteDto> resultados = clienteService.findClientesWithFilters(null, texto, null, pageable);
 
         return ResponseEntity.ok(resultados);
     }

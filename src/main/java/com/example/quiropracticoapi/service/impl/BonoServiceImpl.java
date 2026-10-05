@@ -70,6 +70,14 @@ public class BonoServiceImpl implements BonoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<BonoResponseDto> getBonosCliente(Integer idCliente) {
+        return bonoActivoRepository.findByClienteIdWithFutureAppointments(idCliente).stream()
+                .map(this::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public void devolverSesion(Integer idBonoActivo) {
         devolverSesion(idBonoActivo, null);

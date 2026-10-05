@@ -40,21 +40,8 @@ public class BonoController {
      * @return lista de bonos del cliente
      */
     @GetMapping("/cliente/{idCliente}")
-    public ResponseEntity<List<BonoDto>> getBonosCliente(@PathVariable Integer idCliente) {
-        List<BonoDto> bonos = bonoRepo.findByClienteIdCliente(idCliente).stream()
-                .map(b -> {
-                    BonoDto dto = new BonoDto();
-                    dto.setIdBonoActivo(b.getIdBonoActivo());
-                    dto.setNombreServicio(b.getServicioComprado().getNombreServicio());
-                    dto.setSesionesTotales(b.getSesionesTotales());
-                    dto.setSesionesRestantes(b.getSesionesRestantes());
-                    dto.setFechaCaducidad(b.getFechaCaducidad());
-                    dto.setFechaCompra(b.getFechaCompra());
-                    return dto;
-                })
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(bonos);
+    public ResponseEntity<List<com.example.quiropracticoapi.dto.BonoResponseDto>> getBonosCliente(@PathVariable Integer idCliente) {
+        return ResponseEntity.ok(bonoService.getBonosCliente(idCliente));
     }
 
     /**

@@ -14,6 +14,8 @@ public interface BonoService {
 
     List<BonoSeleccionDto> getBonosUsables(Integer idCliente);
 
+    List<com.example.quiropracticoapi.dto.BonoResponseDto> getBonosCliente(Integer idCliente);
+
     void devolverSesion(Integer idBonoActivo);
     void devolverSesion(Integer idBonoActivo, Integer idCita);
     void consumirSesion(Integer idBonoActivo);

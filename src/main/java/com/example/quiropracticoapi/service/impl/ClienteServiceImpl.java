@@ -38,6 +38,8 @@ public class ClienteServiceImpl implements ClienteService {
     private final BonoActivoRepository bonoActivoRepository;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
     private final BonoServiceImpl bonoServiceImpl;
+    private final com.example.quiropracticoapi.repository.PagoRepository pagoRepository;
+    private final com.example.quiropracticoapi.mapper.CitaMapper citaMapper;
 
 
 
@@ -47,7 +49,11 @@ public class ClienteServiceImpl implements ClienteService {
             ClienteMapper clienteMapper,
             GrupoFamiliarRepository grupoFamiliarRepository,
             CitaRepository citaRepository,
-            BonoActivoRepository bonoActivoRepository, AuditoriaServiceImpl auditoriaServiceImpl, BonoServiceImpl bonoServiceImpl
+            BonoActivoRepository bonoActivoRepository, 
+            AuditoriaServiceImpl auditoriaServiceImpl, 
+            BonoServiceImpl bonoServiceImpl,
+            com.example.quiropracticoapi.repository.PagoRepository pagoRepository,
+            com.example.quiropracticoapi.mapper.CitaMapper citaMapper
     ) {
         this.clienteRepository = clienteRepository;
         this.clienteMapper = clienteMapper;
@@ -56,6 +62,8 @@ public class ClienteServiceImpl implements ClienteService {
         this.bonoActivoRepository = bonoActivoRepository;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
         this.bonoServiceImpl = bonoServiceImpl;
+        this.pagoRepository = pagoRepository;
+        this.citaMapper = citaMapper;
     }
 
 
@@ -74,7 +82,7 @@ public class ClienteServiceImpl implements ClienteService {
     public ClienteDto getClienteById(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontro el cliente con id: " + id));
-        return enrichClienteDto(cliente);
+        return enrichClienteDetalleDto(cliente);
     }
 
     @Override
@@ -134,19 +142,7 @@ public class ClienteServiceImpl implements ClienteService {
         );
     }
 
-    @Override
-    public List<ClienteDto> searchClientesList(String texto) {
-        return clienteRepository.searchGlobal(texto)
-                .stream()
-                .map(clienteMapper::toClienteDto)
-                .collect(Collectors.toList());
-    }
 
-    @Override
-    public Page<ClienteDto> searchClientesPaged(String texto, Pageable pageable) {
-        Page<Cliente> pagina = clienteRepository.searchGlobalPaged(texto, pageable);
-        return pagina.map(clienteMapper::toClienteDto);
-    }
 
     @Override
     public Page<ClienteDto> findClientesWithFilters(
@@ -156,13 +152,9 @@ public class ClienteServiceImpl implements ClienteService {
         Pageable pageable
     ) {
         // Para filtros temporales complejos (lastActivityDays) seguimos usando el filtrado por entidad
-        // Pero para la búsqueda general (que es el 90% del uso), usamos la versión optimizada.
+        LocalDateTime ultimaCitaDesde = null;
         if (lastActivityDays != null) {
-            LocalDateTime ultimaCitaDesde = LocalDateTime.now().minusDays(lastActivityDays);
-            Page<Cliente> clientesPage = clienteRepository.findClientesFiltered(
-                activo, texto, ultimaCitaDesde, pageable
-            );
-            return clientesPage.map(this::enrichClienteDto);
+            ultimaCitaDesde = LocalDateTime.now().minusDays(lastActivityDays);
         }
 
         Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
@@ -170,7 +162,7 @@ public class ClienteServiceImpl implements ClienteService {
         log.info("[DEBUG-TENANT] Servicio: ClienteServiceImpl | TenantContext: {} | Texto: {}", tenantId, texto);
         // Búsqueda normal optimizada (Sin N+1)
         Page<ClienteDetalleProjection> projectionPage = clienteRepository.findClientesOptimized(
-            activo, texto, tenantId, pageable
+            activo, texto, tenantId, ultimaCitaDesde, pageable
         );
 
         return projectionPage.map(p -> {
@@ -193,40 +185,42 @@ public class ClienteServiceImpl implements ClienteService {
         });
     }
 
-    /**
-     * Enriquece un ClienteDto con información agregada desde los repositorios
-     */
-    private ClienteDto enrichClienteDto(Cliente cliente) {
+    private ClienteDto enrichClienteDetalleDto(Cliente cliente) {
         ClienteDto dto = clienteMapper.toClienteDto(cliente);
+        Integer idCliente = cliente.getIdCliente();
         
-        // Calcular citas programadas (estado = programada, tanto pasadas como futuras)
-        List<Cita> todasCitas = citaRepository.findByClienteIdClienteOrderByFechaHoraInicioDesc(cliente.getIdCliente());
+        // Citas métricas
+        long completadas = citaRepository.countByClienteIdClienteAndEstado(idCliente, EstadoCita.completada);
+        long canceladas = citaRepository.countByClienteIdClienteAndEstado(idCliente, EstadoCita.cancelada);
+        long ausentes = citaRepository.countByClienteIdClienteAndEstado(idCliente, EstadoCita.ausente);
+        long programadas = citaRepository.countByClienteIdClienteAndEstado(idCliente, EstadoCita.programada);
         
-        long citasPendientes = todasCitas.stream()
-            .filter(c -> c.getEstado() == EstadoCita.programada) // Todas las programadas, independientemente de la fecha
-            .count();
+        dto.setCitasPendientes((int) programadas);
+        dto.setCitasCompletadas(completadas);
+        dto.setCitasCanceladas(canceladas);
+        dto.setCitasAusentes(ausentes);
         
-        dto.setCitasPendientes((int) citasPendientes);
+        // Pagos métricas
+        dto.setDeudaPendiente(pagoRepository.sumDeudaPendienteByClienteId(idCliente));
+        dto.setPagosPendientesCount(pagoRepository.countByClienteIdClienteAndPagadoFalse(idCliente));
         
-        // Calcular bonos activos (con sesiones restantes > 0)
-        // Usar el método del repositorio que ya filtra por sesiones > 0
-        List<BonoActivo> bonosActivos = bonoActivoRepository.findByClienteIdClienteAndSesionesRestantesGreaterThan(
-            cliente.getIdCliente(), 
-            0
-        );
-        dto.setBonosActivos(bonosActivos.size());
+        // Bonos activos (Conteo escalar)
+        long bonosActivosCount = bonoActivoRepository.countByClienteIdClienteAndSesionesRestantesGreaterThan(idCliente, 0);
+        dto.setBonosActivos((int) bonosActivosCount);
         
-        // Verificar si tiene familiares (es propietario de algún grupo)
-        List<GrupoFamiliar> grupos = grupoFamiliarRepository.findByPropietarioIdCliente(cliente.getIdCliente());
-        dto.setTieneFamiliares(!grupos.isEmpty());
+        // Familiares (Exists escalar)
+        boolean tieneFamiliares = grupoFamiliarRepository.existsByPropietarioIdCliente(idCliente);
+        dto.setTieneFamiliares(tieneFamiliares);
         
-        // Obtener última cita completada
-        LocalDateTime ultimaCita = todasCitas.stream()
-            .filter(c -> c.getEstado() == EstadoCita.completada)
-            .map(Cita::getFechaHoraInicio)
-            .max(LocalDateTime::compareTo)
-            .orElse(null);
+        // Última cita (Scalar Max Date)
+        LocalDateTime ultimaCita = citaRepository.findUltimaCitaCompletadaFecha(idCliente);
         dto.setUltimaCita(ultimaCita);
+        
+        citaRepository.findFirstByClienteIdClienteAndEstadoAndFechaHoraInicioGreaterThanEqualOrderByFechaHoraInicioAsc(
+            idCliente, EstadoCita.programada, LocalDateTime.now()
+        ).ifPresent(cita -> {
+            dto.setProximaCita(citaMapper.toDto(cita));
+        });
         
         return dto;
     }

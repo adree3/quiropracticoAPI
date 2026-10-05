@@ -52,7 +52,7 @@ public class CitaController {
             @RequestParam(value = "estado", required = false) EstadoCita estado,
             @RequestParam(value = "fechaInicio", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(value = "fechaFin", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
-            @PageableDefault(size = 15, sort = "fechaHoraInicio") Pageable pageable) {
+            @PageableDefault(size = 15, sort = "fechaHoraInicio", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         
         log.debug("getCitasCliente - idCliente: {}, fechaInicio: {}, fechaFin: {}", idCliente, fechaInicio, fechaFin);
         

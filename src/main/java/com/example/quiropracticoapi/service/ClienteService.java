@@ -47,21 +47,6 @@ public interface ClienteService {
     void deleteCliente(Integer id);
 
     /**
-     * Busca clientes cuyos apellidos contengan el textoBuscado.
-     * @param texto El texto a buscar (ej. "Garc").
-     * @return Lista de clientes que coinciden.
-     */
-    List<ClienteDto> searchClientesList(String texto);
-
-    /**
-     * Busca clientes por el filtro del texto que recibe
-     * @param texto por el cual se filtra
-     * @param pageable para el page
-     * @return un page de clientes filtrados
-     */
-    Page<ClienteDto> searchClientesPaged(String texto, Pageable pageable);
-
-    /**
      * Busca clientes con filtros opcionales flexibles (unifica getAllClientes y searchClientes)
      * @param activo true para activos, false para inactivos, null para todos
      * @param texto búsqueda global por nombre/apellido/teléfono (opcional)
