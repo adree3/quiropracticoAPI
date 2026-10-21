@@ -15,5 +15,6 @@ public class LoginRequest {
     @NotBlank(message = "La contraseña es obligatoria")
     private String password;
 
+    @com.fasterxml.jackson.annotation.JsonAlias({"idClinica", "clinica_id"})
     private Long clinicaId;
 }

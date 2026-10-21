@@ -176,8 +176,12 @@ public class AuthService {
             Long clinicaIdParaToken;
 
             if (user.getRol() == Rol.super_admin) {
-                // Super Admin: el request manda. Si no hay, modo sistema (0 = sin filtro tenant).
-                clinicaIdParaToken = request.getClinicaId() != null ? request.getClinicaId() : 0L;
+                // Super Admin: el request manda.
+                if (request.getClinicaId() != null && request.getClinicaId() > 0) {
+                    clinicaIdParaToken = request.getClinicaId();
+                } else {
+                    clinicaIdParaToken = user.getClinica() != null ? user.getClinica().getIdClinica() : 0L;
+                }
             } else {
                 // Usuario normal: validar que el clinicaId del request coincida con el de la DB.
                 Long clinicaDelUsuario = user.getClinica() != null ? user.getClinica().getIdClinica() : null;

@@ -41,6 +41,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String username;
         final String path = request.getServletPath();
 
+        if (path.startsWith("/api/webhooks/whatsapp")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // blindaje: Solo permitimos token por URL para la ruta del handshake del WebSocket (Kiosk)
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             if (path.startsWith("/ws-kiosk")) {
@@ -81,6 +86,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+        } catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            log.warn("JWT expirado para el usuario (o token inválido)");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Token caducado\"}");
+            return; // Abortar filtro
         } catch (Exception e) {
             log.error("[DEBUG-AUTH] Error crítico en JwtAuthenticationFilter: ", e);
         } finally {
