@@ -30,6 +30,8 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}")
+    private String corsAllowedOrigins;
 
     @Autowired
     public SecurityConfig(CustomUserDetailsService userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -65,9 +67,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/stats/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_quiropráctico")
-                        .requestMatchers("/api/auth/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_quiropráctico")
-                        .requestMatchers("/api/auditoria/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_quiropráctico")
+                        .requestMatchers("/api/webhooks/whatsapp/**").permitAll()
+                        .requestMatchers("/api/stats/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_doctor")
+                        .requestMatchers("/api/auth/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_doctor")
+                        .requestMatchers("/api/auditoria/**").hasAnyAuthority("ROLE_admin", "ROLE_super_admin", "ROLE_doctor")
                         .requestMatchers("/ws-kiosk/**").permitAll()
                         .anyRequest().authenticated()
                 )
@@ -83,10 +86,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Whitelist de orígenes permitidos (Producción + Desarrollo)
-        configuration.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost:*"
-        ));
+        // Whitelist de orígenes permitidos (parametrizada para soportar desarrollo y producción)
+        List<String> origins = Arrays.stream(corsAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         configuration.setAllowCredentials(true);

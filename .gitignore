@@ -35,3 +35,8 @@ build/
 ### Ficheros de configuración con secretos ###
 application-dev.properties
 **/application-dev.properties
+
+### Logs y volcados temporales de compilación ###
+*.log
+compile_*.txt
+mvn_debug.txt
