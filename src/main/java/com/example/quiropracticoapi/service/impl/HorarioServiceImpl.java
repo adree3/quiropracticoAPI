@@ -73,6 +73,11 @@ public class HorarioServiceImpl implements HorarioService {
         horario.setDiaSemana(request.getDiaSemana().byteValue());
         horario.setHoraInicio(request.getHoraInicio());
         horario.setHoraFin(request.getHoraFin());
+        
+        // REGLA 1: Asignar clínica
+        if (quiro.getClinica() != null) {
+            horario.setClinica(quiro.getClinica());
+        }
 
         Horario guardado = horarioRepository.save(horario);
 

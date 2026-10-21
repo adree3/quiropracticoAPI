@@ -12,11 +12,14 @@ import com.example.quiropracticoapi.model.enums.TipoAccion;
 import com.example.quiropracticoapi.repository.*;
 import com.example.quiropracticoapi.service.CitaService;
 import com.example.quiropracticoapi.service.impl.R2StorageService;
+import com.example.quiropracticoapi.util.StoragePathBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -40,15 +43,15 @@ public class CitaServiceImpl implements CitaService {
     private final CitaMapper citaMapper;
     private final BonoActivoRepository bonoActivoRepository;
     private final ConsumoBonoRepository consumoBonoRepository;
-    private final WhatsAppService whatsAppService;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
     private final PdfFirmaService pdfFirmaService;
     private final R2StorageService r2StorageService;
+    private final StoragePathBuilder storagePathBuilder;
     private final DocumentoClienteRepository documentoClienteRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactionTemplate;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
-
-
 
     @Autowired
     public CitaServiceImpl(CitaRepository citaRepository, 
@@ -59,12 +62,14 @@ public class CitaServiceImpl implements CitaService {
                            CitaMapper citaMapper, 
                            BonoActivoRepository bonoActivoRepository, 
                            ConsumoBonoRepository consumoBonoRepository, 
-                           WhatsAppService whatsAppService, 
                            AuditoriaServiceImpl auditoriaServiceImpl, 
                            PdfFirmaService pdfFirmaService,
                            R2StorageService r2StorageService,
+                           StoragePathBuilder storagePathBuilder,
                            DocumentoClienteRepository documentoClienteRepository,
-                           SimpMessagingTemplate messagingTemplate) {
+                           SimpMessagingTemplate messagingTemplate,
+                           org.springframework.context.ApplicationEventPublisher eventPublisher,
+                           PlatformTransactionManager transactionManager) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -73,12 +78,14 @@ public class CitaServiceImpl implements CitaService {
         this.citaMapper = citaMapper;
         this.bonoActivoRepository = bonoActivoRepository;
         this.consumoBonoRepository = consumoBonoRepository;
-        this.whatsAppService = whatsAppService;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
         this.pdfFirmaService = pdfFirmaService;
         this.r2StorageService = r2StorageService;
+        this.storagePathBuilder = storagePathBuilder;
         this.documentoClienteRepository = documentoClienteRepository;
         this.messagingTemplate = messagingTemplate;
+        this.eventPublisher = eventPublisher;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -92,6 +99,12 @@ public class CitaServiceImpl implements CitaService {
         validarDisponibilidad(quiro, request, null);
 
         Cita cita = citaMapper.toEntity(request, cliente, quiro);
+        
+        // REGLA 1: Asignar clínica explícitamente desde la entidad padre
+        if (cliente.getClinica() != null) {
+            cita.setClinica(cliente.getClinica());
+        }
+
         Cita citaGuardada = citaRepository.save(cita);
 
         BonoActivo bonoUsado = gestionarConsumoBono(citaGuardada, cliente, request.getIdBonoAUtilizar());
@@ -103,24 +116,8 @@ public class CitaServiceImpl implements CitaService {
                 "Cliente: " + cliente.getNombre() + ". Quiro: " + quiro.getUsername() +
                         ". Fecha: " + citaGuardada.getFechaHoraInicio() + ". " + detallesPago
         );
-        if (bonoUsado != null) {
-            try {
-                String telefono = cliente.getTelefono();
-                String nombre = cliente.getNombre();
-                String fechaFormateada = citaGuardada.getFechaHoraInicio().format(DATE_FORMATTER);
-                String sesionesRestantes = String.valueOf(bonoUsado.getSesionesRestantes());
-                String nombreServicio = bonoUsado.getServicioComprado().getNombreServicio();
-                whatsAppService.enviarMensajeCita(
-                        telefono,
-                        nombre,
-                        fechaFormateada,
-                        sesionesRestantes,
-                        nombreServicio
-                );
-            } catch (Exception e) {
-                log.warn("ALERTA: Cita creada pero falló el envío de WhatsApp: {}", e.getMessage());
-            }
-        }
+
+        eventPublisher.publishEvent(new com.example.quiropracticoapi.event.CitaCreadaEvent(citaGuardada.getIdCita()));
 
         return citaMapper.toDto(citaGuardada);
     }
@@ -229,6 +226,9 @@ public class CitaServiceImpl implements CitaService {
             consumo.setCita(cita);
             consumo.setBonoActivo(bonoGuardado);
             consumo.setSesionesRestantesSnapshot(nuevoSaldo);
+            if (cita.getClinica() != null) {
+                consumo.setClinica(cita.getClinica());
+            }
             consumoBonoRepository.save(consumo);
 
             auditoriaServiceImpl.registrarAccion(
@@ -244,6 +244,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CitaDto> getCitasPorFecha(LocalDate fecha) {
         log.info("[DEBUG-TENANT] Servicio: CitaServiceImpl | Agenda para fecha: {} | TenantContext: {}", fecha, com.example.quiropracticoapi.config.TenantContext.getTenantId());
         List<Cita> citas=  citaRepository.findByFechaHoraInicioBetween(
@@ -258,6 +259,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<CitaDto> getCitasPorCliente(Integer idCliente, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
         LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
         LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
@@ -302,6 +304,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CitaDto getCitaById(Integer idCita) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
@@ -398,6 +401,9 @@ public class CitaServiceImpl implements CitaService {
                 consumo.setCita(cita);
                 consumo.setBonoActivo(bonoGuardado);
                 consumo.setSesionesRestantesSnapshot(nuevoSaldo);
+                if (cita.getClinica() != null) {
+                    consumo.setClinica(cita.getClinica());
+                }
                 consumoBonoRepository.save(consumo);
 
                 cita.setIdBonoPreasignado(null);
@@ -487,6 +493,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir) {
         List<HuecoDto> huecosLibres = new ArrayList<>();
         int duracionCitaMinutos = 30;
@@ -552,6 +559,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<CitaDto> getAllCitas(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable) {
         LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
         LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
@@ -570,6 +578,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public com.example.quiropracticoapi.dto.CitasKpiDto getCitasKpis(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin) {
         LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
         LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(23, 59, 59) : null;
@@ -584,6 +593,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<CitaDto> getCitasPorRango(LocalDate desde, LocalDate hasta, Integer idQuiropractico) {
         LocalDateTime inicio = desde.atStartOfDay();
         LocalDateTime fin = hasta.atTime(23, 59, 59);
@@ -630,36 +640,42 @@ public class CitaServiceImpl implements CitaService {
         }
     }
     @Override
-    @Transactional
     public CitaDto procesarFirma(Integer idCita, String base64Firma) {
-        Cita cita = citaRepository.findById(idCita)
-                .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+        // PASO 1 (Transacción BD corta): Guardar rúbrica y marcar estado COMPLETADA
+        Cita citaGuardada = transactionTemplate.execute(status -> {
+            Cita cita = citaRepository.findById(idCita)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
 
-        // 1. Guardar la firma original en la cita (Base de Datos)
-        cita.setFirmaBase64(base64Firma);
-        cita.setEstado(EstadoCita.completada);
-        cita.setFirmada(true);
+            cita.setFirmaBase64(base64Firma);
+            cita.setEstado(EstadoCita.completada);
+            cita.setFirmada(true);
 
-        Cita citaGuardada = citaRepository.save(cita);
+            Cita guardada = citaRepository.save(cita);
 
-        // 2. Si la cita fue revertida y tiene bono pre-asignado, re-consumir la sesión
-        BonoActivo bonoAfectado = reconsumirSesionBonoSiAplica(citaGuardada);
-        if (bonoAfectado != null) {
-            citaGuardada = citaRepository.save(citaGuardada);
+            // Re-consumir bono si aplica
+            reconsumirSesionBonoSiAplica(guardada);
+
+            auditoriaServiceImpl.registrarAccion(
+                    TipoAccion.EDITAR,
+                    "CITA",
+                    idCita.toString(),
+                    "Firma procesada. Cita marcada como COMPLETADA."
+            );
+
+            return guardada;
+        });
+
+        // PASO 2: Generar PDF y subir a Cloudflare R2 (I/O de red FUERA de transacción)
+        byte[] pdfBytes = ejecutarGeneracionYSubidaJustificante(citaGuardada, null);
+
+        // PASO 3: Construcción de DTO final
+        Cita citaFinal = citaRepository.findById(idCita).orElse(citaGuardada);
+        CitaDto dto = citaMapper.toDto(citaFinal);
+        llenarInfoPago(citaFinal, dto);
+
+        if (pdfBytes != null) {
+            dto.setSignedPdfBase64(java.util.Base64.getEncoder().encodeToString(pdfBytes));
         }
-        
-        // 3. Regenerar/Generar PDF (Lógica centralizada) - null porque se busca solo
-        actualizarJustificantesPostCambio(citaGuardada, null);
-
-        auditoriaServiceImpl.registrarAccion(
-                TipoAccion.EDITAR,
-                "CITA",
-                idCita.toString(),
-                "Firma procesada. Cita marcada como COMPLETADA."
-        );
-
-        CitaDto dto = citaMapper.toDto(citaGuardada);
-        llenarInfoPago(citaGuardada, dto);
 
         // Notificar al WebSocket para que el frontend (CitasView/Dialog) se actualice solo
         java.util.Map<String, Object> payload = new java.util.HashMap<>();
@@ -671,13 +687,12 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
-    @Transactional
-    public String generarBorradorFirma(Integer idCita) {
+    @Transactional(readOnly = true)
+    public byte[] generarBorradorPdf(Integer idCita) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
 
         java.util.List<PdfFirmaService.SesionInfo> sesiones = new ArrayList<>();
-        String nombreDocumento;
         BonoActivo bono = null;
 
         var consumoOpt = consumoBonoRepository.findByCitaIdCita(idCita);
@@ -705,11 +720,6 @@ public class CitaServiceImpl implements CitaService {
                     sesiones.add(new PdfFirmaService.SesionInfo(i + 1, null, null, null));
                 }
             }
-            
-            String nombreS = (bono.getServicioComprado() != null && bono.getServicioComprado().getNombreServicio() != null) 
-                             ? bono.getServicioComprado().getNombreServicio() 
-                             : "Bono";
-            nombreDocumento = nombreS.replaceAll("\\s+", "_") + "_" + bono.getIdBonoActivo();
         } else if (cita.getIdBonoPreasignado() != null) {
             // Cita revertida: no tiene consumo pero sí bono pre-asignado
             bono = bonoActivoRepository.findById(cita.getIdBonoPreasignado()).orElse(null);
@@ -750,11 +760,6 @@ public class CitaServiceImpl implements CitaService {
                 for (; idx < bono.getSesionesTotales(); idx++) {
                     sesiones.add(new PdfFirmaService.SesionInfo(idx + 1, null, null, null));
                 }
-                
-                String nombreS = (bono.getServicioComprado() != null && bono.getServicioComprado().getNombreServicio() != null) 
-                                 ? bono.getServicioComprado().getNombreServicio() 
-                                 : "Bono";
-                nombreDocumento = nombreS.replaceAll("\\s+", "_") + "_" + bono.getIdBonoActivo();
             } else {
                 // Bono pre-asignado ya no existe, tratar como sesión suelta
                 String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
@@ -765,7 +770,6 @@ public class CitaServiceImpl implements CitaService {
                     rangoHora,
                     null
                 ));
-                nombreDocumento = "Sesion_Suelta_" + idCita;
             }
         } else {
             String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
@@ -777,10 +781,9 @@ public class CitaServiceImpl implements CitaService {
                 rangoHora,
                 null // Borrador sin firma
             ));
-            nombreDocumento = "Sesion_Suelta_" + idCita;
         }
 
-        byte[] pdfBytes = pdfFirmaService.generarPdfBono(
+        return pdfFirmaService.generarPdfBono(
             cita.getCliente().getNombre() + " " + cita.getCliente().getApellidos(),
             cita.getCliente().getIdCliente().toString(),
             cita.getQuiropractico().getNombreCompleto(),
@@ -789,14 +792,6 @@ public class CitaServiceImpl implements CitaService {
             bono != null && bono.getFechaCaducidad() != null ? bono.getFechaCaducidad().toString() : "Sin caducidad",
             sesiones
         );
-
-        String pathBorrador = String.format("clientes/%d/borradores/%s_BORRADOR.pdf", 
-                                            cita.getCliente().getIdCliente(), nombreDocumento);
-        
-        r2StorageService.storeBytes(pdfBytes, pathBorrador, "application/pdf");
-        
-        // Retornamos la URL prefirmada para el Kiosco
-        return r2StorageService.generatePresignedUrl(pathBorrador);
     }
 
     private void registrarDocumentoEnFicha(Cita cita, String path, String nombre, Long tamanyo) {
@@ -808,23 +803,90 @@ public class CitaServiceImpl implements CitaService {
         } else {
             doc = new DocumentoCliente();
             doc.setCliente(cita.getCliente());
+            
+            Clinica clinica = cita.getClinica();
+            if (clinica == null && cita.getCliente() != null) {
+                clinica = cita.getCliente().getClinica();
+            }
+            doc.setClinica(clinica);
             doc.setPathArchivo(path);
             doc.setTipoDocumento(com.example.quiropracticoapi.model.enums.TipoDocumento.JUSTIFICANTE_ASISTENCIA);
             doc.setMimeType("application/pdf");
             doc.setFechaCreacion(LocalDateTime.now());
         }
         
-        doc.setNombreOriginal(nombre + ".pdf");
-        doc.setTamanyoBytes(tamanyo);
+        // Asegurar campos no nulos ante posibles registros previos incompletos
+        if (doc.getClinica() == null) {
+            Clinica clinica = cita.getClinica();
+            if (clinica == null && cita.getCliente() != null) {
+                clinica = cita.getCliente().getClinica();
+            }
+            doc.setClinica(clinica);
+        }
+        if (doc.getMimeType() == null) {
+            doc.setMimeType("application/pdf");
+        }
+        if (doc.getTipoDocumento() == null) {
+            doc.setTipoDocumento(com.example.quiropracticoapi.model.enums.TipoDocumento.JUSTIFICANTE_ASISTENCIA);
+        }
+        
+        doc.setNombreOriginal(nombre.endsWith(".pdf") ? nombre : nombre + ".pdf");
+        doc.setTamanyoBytes(tamanyo != null ? tamanyo : 0L);
         doc.setEstadoSubida(com.example.quiropracticoapi.model.enums.EstadoSubida.ACTIVO);
         doc.setCita(cita);
         doc.setActivo(true);
+        if (doc.getFechaCreacion() == null) {
+            doc.setFechaCreacion(LocalDateTime.now());
+        }
         
         documentoClienteRepository.save(doc);
     }
 
-    private void actualizarJustificantesPostCambio(Cita cita, BonoActivo bonoForzado) {
-        // Preparar datos para la cartilla dinámica
+    private static class PdfGenerationData {
+        private final boolean generar;
+        private final String pathR2;
+        private final String nombreDocumento;
+        private final String nombreCliente;
+        private final String idCliente;
+        private final String nombreProfesional;
+        private final String nombreServicio;
+        private final String idBono;
+        private final String fechaCaducidad;
+        private final List<PdfFirmaService.SesionInfo> sesiones;
+
+        public PdfGenerationData(boolean generar, String pathR2, String nombreDocumento,
+                                 String nombreCliente, String idCliente, String nombreProfesional,
+                                 String nombreServicio, String idBono, String fechaCaducidad,
+                                 List<PdfFirmaService.SesionInfo> sesiones) {
+            this.generar = generar;
+            this.pathR2 = pathR2;
+            this.nombreDocumento = nombreDocumento;
+            this.nombreCliente = nombreCliente;
+            this.idCliente = idCliente;
+            this.nombreProfesional = nombreProfesional;
+            this.nombreServicio = nombreServicio;
+            this.idBono = idBono;
+            this.fechaCaducidad = fechaCaducidad;
+            this.sesiones = sesiones;
+        }
+
+        public static PdfGenerationData noGenerar() {
+            return new PdfGenerationData(false, null, null, null, null, null, null, null, null, null);
+        }
+
+        public boolean isGenerar() { return generar; }
+        public String getPathR2() { return pathR2; }
+        public String getNombreDocumento() { return nombreDocumento; }
+        public String getNombreCliente() { return nombreCliente; }
+        public String getIdCliente() { return idCliente; }
+        public String getNombreProfesional() { return nombreProfesional; }
+        public String getNombreServicio() { return nombreServicio; }
+        public String getIdBono() { return idBono; }
+        public String getFechaCaducidad() { return fechaCaducidad; }
+        public List<PdfFirmaService.SesionInfo> getSesiones() { return sesiones; }
+    }
+
+    private PdfGenerationData prepararDatosPdf(Cita cita, BonoActivo bonoForzado) {
         java.util.List<PdfFirmaService.SesionInfo> sesiones = new ArrayList<>();
         String pathR2;
         String nombreDocumento;
@@ -837,39 +899,31 @@ public class CitaServiceImpl implements CitaService {
             }
         }
 
-        String carpetaJustificantes = String.format("clientes/%d/justificantes", cita.getCliente().getIdCliente());
+        Long clinicaId = (cita.getClinica() != null && cita.getClinica().getIdClinica() != null)
+                ? cita.getClinica().getIdClinica()
+                : (cita.getCliente() != null && cita.getCliente().getClinica() != null)
+                        ? cita.getCliente().getClinica().getIdClinica()
+                        : com.example.quiropracticoapi.config.TenantContext.getTenantId();
         
         if (bonoAUsar != null) {
-            // Buscar todas las citas que han consumido este bono para el historial
             List<ConsumoBono> consumosDelBono = consumoBonoRepository.findByBonoActivoIdBonoActivoOrderByFechaCreacionAsc(bonoAUsar.getIdBonoActivo());
             
             String nombreS = (bonoAUsar.getServicioComprado() != null && bonoAUsar.getServicioComprado().getNombreServicio() != null) 
                              ? bonoAUsar.getServicioComprado().getNombreServicio() 
                              : "Bono";
             String nombreServicioClean = nombreS.replaceAll("\\s+", "_");
-            pathR2 = String.format("%s/%s_Bono_%d.pdf", carpetaJustificantes, nombreServicioClean, bonoAUsar.getIdBonoActivo());
+            pathR2 = storagePathBuilder.buildRutaJustificanteBono(clinicaId, cita.getCliente().getIdCliente(), nombreServicioClean, bonoAUsar.getIdBonoActivo());
             nombreDocumento = nombreServicioClean + "_" + bonoAUsar.getIdBonoActivo();
 
-            // Si no hay consumos (porque acabamos de cancelar la única cita), borramos el PDF de R2 si existe
+            // Si no hay consumos (porque acabamos de cancelar la única cita), borrado puramente LÓGICO en BD (sin borrar de R2)
             if (consumosDelBono.isEmpty()) {
-                try {
-                    if (r2StorageService.exists(pathR2)) {
-                        r2StorageService.delete(pathR2);
-                        documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
-                            doc.setActivo(false);
-                            doc.setEstadoSubida(EstadoSubida.ELIMINADO);
-                            documentoClienteRepository.save(doc);
-                        });
-                    }
-                } catch (Exception e) {
-                    auditoriaServiceImpl.registrarAccion(
-                        TipoAccion.ERROR,
-                        "DOCUMENTO",
-                        cita.getIdCita().toString(),
-                        "Fallo al eliminar PDF de S3/R2 (" + pathR2 + "): " + e.getMessage()
-                    );
-                }
-                return;
+                documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
+                    doc.setActivo(false);
+                    doc.setEstadoSubida(EstadoSubida.ELIMINADO);
+                    doc.setFechaEliminacionLogica(LocalDateTime.now());
+                    documentoClienteRepository.save(doc);
+                });
+                return PdfGenerationData.noGenerar();
             }
 
             for (int i = 0; i < bonoAUsar.getSesionesTotales(); i++) {
@@ -892,27 +946,16 @@ public class CitaServiceImpl implements CitaService {
                 }
             }
         } else {
-            // Caso de Sesión Suelta
+            // Caso de Sesión Suelta: si no está completada, borrado puramente LÓGICO en BD (sin borrar de R2)
             if (cita.getEstado() != EstadoCita.completada) {
-                pathR2 = String.format("%s/Justificante_Sesion_%d.pdf", carpetaJustificantes, cita.getIdCita());
-                try {
-                    if (r2StorageService.exists(pathR2)) {
-                        r2StorageService.delete(pathR2);
-                        documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
-                            doc.setActivo(false);
-                            doc.setEstadoSubida(EstadoSubida.ELIMINADO);
-                            documentoClienteRepository.save(doc);
-                        });
-                    }
-                } catch (Exception e) {
-                    auditoriaServiceImpl.registrarAccion(
-                        TipoAccion.ERROR,
-                        "DOCUMENTO",
-                        cita.getIdCita().toString(),
-                        "Fallo al eliminar PDF de Sesion Suelta en S3/R2 (" + pathR2 + "): " + e.getMessage()
-                    );
-                }
-                return;
+                pathR2 = storagePathBuilder.buildRutaJustificante(clinicaId, cita.getCliente().getIdCliente(), cita.getIdCita());
+                documentoClienteRepository.findByPathArchivo(pathR2).ifPresent(doc -> {
+                    doc.setActivo(false);
+                    doc.setEstadoSubida(EstadoSubida.ELIMINADO);
+                    doc.setFechaEliminacionLogica(LocalDateTime.now());
+                    documentoClienteRepository.save(doc);
+                });
+                return PdfGenerationData.noGenerar();
             }
 
             String rangoHora = cita.getFechaHoraInicio().format(DateTimeFormatter.ofPattern("HH:mm")) + " - " +
@@ -924,12 +967,14 @@ public class CitaServiceImpl implements CitaService {
                 rangoHora,
                 (cita.getFirmaBase64() != null) ? PdfFirmaService.limpiarBase64(cita.getFirmaBase64()) : null
             ));
-            pathR2 = String.format("%s/Justificante_Sesion_%d.pdf", carpetaJustificantes, cita.getIdCita());
+            pathR2 = storagePathBuilder.buildRutaJustificante(clinicaId, cita.getCliente().getIdCliente(), cita.getIdCita());
             nombreDocumento = "Sesion_Suelta_" + cita.getIdCita();
         }
 
-        // Generar PDF en memoria
-        byte[] pdfBytes = pdfFirmaService.generarPdfBono(
+        return new PdfGenerationData(
+            true,
+            pathR2,
+            nombreDocumento,
             cita.getCliente().getNombre() + " " + cita.getCliente().getApellidos(),
             cita.getCliente().getIdCliente().toString(),
             cita.getQuiropractico().getNombreCompleto(),
@@ -938,16 +983,44 @@ public class CitaServiceImpl implements CitaService {
             bonoAUsar != null && bonoAUsar.getFechaCaducidad() != null ? bonoAUsar.getFechaCaducidad().toString() : "Sin caducidad",
             sesiones
         );
+    }
 
-        r2StorageService.storeBytes(pdfBytes, pathR2, "application/pdf");
+    private byte[] ejecutarGeneracionYSubidaJustificante(Cita cita, BonoActivo bonoForzado) {
+        // PASO A: Preparar datos dentro de transacción corta de lectura (evitando LazyInitializationException)
+        PdfGenerationData data = transactionTemplate.execute(status -> prepararDatosPdf(cita, bonoForzado));
 
-        // Actualizar ruta en la cita solo si el estado es COMPLETADA
-        // (Si se regeneró por una reversión, la cita actual ya no tiene ruta justificante)
-        if (cita.getEstado() == EstadoCita.completada) {
-            cita.setRutaJustificante(pathR2);
-            citaRepository.save(cita);
+        if (data == null || !data.isGenerar()) {
+            return null;
         }
 
-        registrarDocumentoEnFicha(cita, pathR2, nombreDocumento, (long) pdfBytes.length);
+        // PASO B: Generar PDF en memoria RAM (CPU bound, sin BD)
+        byte[] pdfBytes = pdfFirmaService.generarPdfBono(
+            data.getNombreCliente(),
+            data.getIdCliente(),
+            data.getNombreProfesional(),
+            data.getNombreServicio(),
+            data.getIdBono(),
+            data.getFechaCaducidad(),
+            data.getSesiones()
+        );
+
+        // PASO C (I/O DE RED FUERA DE TRANSACCIÓN): Subir a Cloudflare R2 sin retener conexión de BD
+        r2StorageService.storeBytes(pdfBytes, data.getPathR2(), "application/pdf");
+
+        // PASO D: Post-Update en BD dentro de micro-transacción
+        transactionTemplate.executeWithoutResult(status -> {
+            if (cita.getEstado() == EstadoCita.completada) {
+                Cita c = citaRepository.findById(cita.getIdCita()).orElse(cita);
+                c.setRutaJustificante(data.getPathR2());
+                citaRepository.save(c);
+            }
+            registrarDocumentoEnFicha(cita, data.getPathR2(), data.getNombreDocumento(), (long) pdfBytes.length);
+        });
+
+        return pdfBytes;
+    }
+
+    private byte[] actualizarJustificantesPostCambio(Cita cita, BonoActivo bonoForzado) {
+        return ejecutarGeneracionYSubidaJustificante(cita, bonoForzado);
     }
 }

@@ -196,4 +196,26 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin
     );
+
+    @Query("SELECT c FROM Cita c WHERE " +
+           "c.estado = 'programada' AND " +
+           "c.recordatorioEnviado = false AND " +
+           "c.fechaHoraInicio BETWEEN :inicio AND :fin")
+    @EntityGraph(attributePaths = {"cliente", "clinica", "quiropractico"})
+    List<Cita> findCitasParaRecordatorio(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin
+    );
+
+    @EntityGraph(attributePaths = {"cliente", "clinica", "quiropractico"})
+    java.util.Optional<Cita> findByWamidUltimoMensaje(String wamidUltimoMensaje);
+
+    @Query("SELECT c FROM Cita c WHERE " +
+           "(CONCAT(REPLACE(c.cliente.prefijoTelefono, '+', ''), c.cliente.telefono) = :telefono " +
+           "OR c.cliente.telefono = :telefono) AND " +
+           "c.estado = 'programada' AND " +
+           "c.fechaHoraInicio >= :umbralTiempo " +
+           "ORDER BY c.fechaHoraInicio ASC LIMIT 1")
+    @EntityGraph(attributePaths = {"cliente", "clinica", "quiropractico"})
+    java.util.Optional<Cita> findProximaCitaPorTelefono(@Param("telefono") String telefono, @Param("umbralTiempo") LocalDateTime umbralTiempo);
 }

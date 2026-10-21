@@ -30,6 +30,9 @@ public class CitaMapper {
         dto.setFirmada(cita.isFirmada());
         dto.setRutaJustificante(cita.getRutaJustificante());
         dto.setFirmaBase64(cita.getFirmaBase64());
+        dto.setConfirmadaWhatsapp(cita.isConfirmadaWhatsapp());
+        dto.setRecordatorioEnviado(cita.isRecordatorioEnviado());
+        dto.setWamidUltimoMensaje(cita.getWamidUltimoMensaje());
         return dto;
     }
 

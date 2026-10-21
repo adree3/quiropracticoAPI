@@ -35,5 +35,5 @@ public interface CitaService {
 
     CitaDto procesarFirma(Integer idCita, String base64Firma);
     
-    String generarBorradorFirma(Integer idCita);
+    byte[] generarBorradorPdf(Integer idCita);
 }

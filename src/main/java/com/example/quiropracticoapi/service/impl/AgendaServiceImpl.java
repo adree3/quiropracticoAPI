@@ -132,6 +132,28 @@ public class AgendaServiceImpl implements AgendaService {
                 throw new AgendaConflictException(msg, "CITAS_EXISTENTES_GLOBAL");
             }
         }
+        
+        if (bloqueo.getUsuario() != null && bloqueo.getUsuario().getClinica() != null) {
+            bloqueo.setClinica(bloqueo.getUsuario().getClinica());
+        } else {
+            Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+            com.example.quiropracticoapi.model.Clinica clinica = new com.example.quiropracticoapi.model.Clinica();
+            if (tenantId == null || tenantId == 0L) {
+                org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getPrincipal() instanceof com.example.quiropracticoapi.model.Usuario u) {
+                    if (u.getClinica() != null) {
+                        clinica.setIdClinica(u.getClinica().getIdClinica());
+                    } else {
+                        clinica.setIdClinica(1L);
+                    }
+                } else {
+                    clinica.setIdClinica(1L);
+                }
+            } else {
+                clinica.setIdClinica(tenantId);
+            }
+            bloqueo.setClinica(clinica);
+        }
 
         BloqueoAgenda guardado = bloqueoAgendaRepository.save(bloqueo);
         String detalle = "Afectado: " + afectado + ". Motivo: " + guardado.getMotivo();

@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,17 +31,14 @@ import java.util.List;
 public class CitaController {
     private final CitaService citaService;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
-    private final com.example.quiropracticoapi.service.impl.PdfFirmaService pdfFirmaService;
     private final com.example.quiropracticoapi.service.impl.R2StorageService r2StorageService;
 
     @Autowired
     public CitaController(CitaService citaService, 
                           org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate,
-                          com.example.quiropracticoapi.service.impl.PdfFirmaService pdfFirmaService,
                           com.example.quiropracticoapi.service.impl.R2StorageService r2StorageService) {
         this.citaService = citaService;
         this.messagingTemplate = messagingTemplate;
-        this.pdfFirmaService = pdfFirmaService;
         this.r2StorageService = r2StorageService;
     }
 
@@ -160,20 +158,15 @@ public class CitaController {
 
     // --- MODO KIOSCO / FIRMA ---
 
-    @Operation(summary = "Solicitar firma en Kiosco", description = "Genera un borrador del PDF y envía una señal WebSocket a la tablet con la URL y metadatos.")
-    @PostMapping("/{idCita}/solicitar-firma")
-    public ResponseEntity<Void> solicitarFirmaKiosco(@PathVariable Integer idCita) {
-        CitaDto cita = citaService.getCitaById(idCita);
+    @Operation(summary = "Solicitar firma en Kiosco", description = "Envía una señal WebSocket a la tablet con los metadatos de la cita para abrir el modo firma.")
+    @PostMapping("/{id}/solicitar-firma")
+    public ResponseEntity<Void> solicitarFirmaKiosco(@PathVariable Integer id) {
+        CitaDto cita = citaService.getCitaById(id);
         
-        // 1. Generar el borrador físico en R2 y obtener URL temporal
-        String urlBorrador = citaService.generarBorradorFirma(idCita);
-        
-        // 2. Preparar payload rico para la tablet
         java.util.Map<String, Object> payload = new java.util.HashMap<>();
         payload.put("action", "OPEN_SIGNATURE");
         payload.put("idCita", cita.getIdCita());
         payload.put("nombrePaciente", cita.getNombreClienteCompleto());
-        payload.put("urlPdf", urlBorrador);
         
         // Datos de contexto para la UI de la tablet
         payload.put("fecha", cita.getFechaHoraInicio().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
@@ -196,8 +189,16 @@ public class CitaController {
         }
         
         messagingTemplate.convertAndSend("/topic/kiosk", payload);
-        
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Obtener borrador de justificante en PDF", description = "Genera al vuelo en RAM el borrador del PDF para visualizar durante la firma.")
+    @GetMapping(value = "/{id}/borrador-pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> getBorradorPdf(@PathVariable Integer id) {
+        byte[] pdfBytes = citaService.generarBorradorPdf(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdfBytes);
     }
 
     @PostMapping("/{idCita}/firmar")
@@ -218,6 +219,7 @@ public class CitaController {
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("cita", citaActualizada);
         response.put("signedPdfUrl", signedUrl);
+        response.put("signedPdfBase64", citaActualizada.getSignedPdfBase64());
 
         return ResponseEntity.ok(response);
     }

@@ -24,4 +24,8 @@ public class CitaDto {
     private boolean firmada;
     private String rutaJustificante;
     private String firmaBase64;
+    private boolean confirmadaWhatsapp;
+    private boolean recordatorioEnviado;
+    private String wamidUltimoMensaje;
+    private String signedPdfBase64;
 }

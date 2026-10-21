@@ -65,6 +65,11 @@ public class HistorialServiceImpl implements HistorialService {
             historial.setCliente(cita.getCliente());
             historial.setQuiropractico(cita.getQuiropractico());
             historial.setFechaSesion(LocalDateTime.now());
+            
+            // REGLA 1: Asignar clínica
+            if (cita.getClinica() != null) {
+                historial.setClinica(cita.getClinica());
+            }
         }
 
         historial.setNotasSubjetivo(dto.getNotasSubjetivo());

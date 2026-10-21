@@ -70,6 +70,18 @@ public class Cita extends BaseAuditEntity implements SoftDeletable, Auditable {
     @Column(name = "notas_recepcion", columnDefinition = "TEXT")
     private String notasRecepcion;
 
+    @Column(name = "confirmada_whatsapp", nullable = false)
+    private boolean confirmadaWhatsapp = false;
+
+    @Column(name = "recordatorio_enviado", nullable = false)
+    private boolean recordatorioEnviado = false;
+
+    @Column(name = "wamid_ultimo_mensaje", length = 150)
+    private String wamidUltimoMensaje;
+
+    @Column(name = "ruta_firma_s3", length = 500)
+    private String rutaFirmaS3;
+
     @Column(name = "id_bono_preasignado")
     private Integer idBonoPreasignado;
 
