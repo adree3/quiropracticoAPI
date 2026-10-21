@@ -65,6 +65,10 @@ public class DocumentoCliente extends BaseAuditEntity {
     @Column(name = "tipo_documento", nullable = false, length = 50)
     private TipoDocumento tipoDocumento;
 
+    /** Subtipo o etiqueta personalizada (ej: "Radiografía Cervical", "Resonancia Lumbar") */
+    @Column(name = "etiqueta", length = 100)
+    private String etiqueta;
+
     /** MIME type real verificado por Apache Tika. Ej: "application/pdf", "image/jpeg" */
     @Column(name = "mime_type", nullable = false, length = 100)
     private String mimeType;
@@ -90,4 +94,7 @@ public class DocumentoCliente extends BaseAuditEntity {
     /** Fecha en la que el documento fue enviado a la papelera (borrado lógico) */
     @Column(name = "fecha_eliminacion_logica")
     private LocalDateTime fechaEliminacionLogica;
+
+    @Column(name = "eliminado_por", length = 100)
+    private String eliminadoPor;
 }

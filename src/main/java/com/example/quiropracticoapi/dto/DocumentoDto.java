@@ -17,6 +17,7 @@ public class DocumentoDto {
     private String url;
     private String thumbnailUrl;
     private TipoDocumento tipoDocumento;
+    private String etiqueta;
     private String mimeType;
     private EstadoSubida estadoSubida;
     private Long tamanyoBytes;

@@ -14,7 +14,7 @@ public interface DocumentoService {
      * 3. Sube a R2.
      * 4. Actualiza a ACTIVO o ERROR_SUBIDA.
      */
-    DocumentoDto subirDocumento(Integer idCliente, MultipartFile file, TipoDocumento tipo, Integer idCita, Integer idPago, String notas);
+    DocumentoDto subirDocumento(Integer idCliente, MultipartFile file, TipoDocumento tipo, String etiqueta, Integer idCita, Integer idPago, String notas);
 
     /**
      * Lista los documentos de un cliente con URLs prefirmadas frescas.
@@ -47,8 +47,8 @@ public interface DocumentoService {
     /** Genera una URL prefirmada específica para la miniatura (Zero-Copy). */
     String obtenerUrlThumbnail(Integer idDocumento);
 
-    /** Permite editar notas y asociar cita (si no tiene una ya). */
-    DocumentoDto actualizarMetadatos(Integer idDocumento, Integer idCita, Integer idPago, String notas);
+    /** Permite editar notas, etiqueta y asociar cita/pago (si no tiene una ya). */
+    DocumentoDto actualizarMetadatos(Integer idDocumento, String etiqueta, Integer idCita, Integer idPago, String notas);
 
     /** Recupera los metadatos de un documento específico. */
     DocumentoDto obtenerDocumento(Integer idDocumento);

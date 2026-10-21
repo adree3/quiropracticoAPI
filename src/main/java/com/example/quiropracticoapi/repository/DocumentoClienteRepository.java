@@ -13,22 +13,26 @@ import java.util.List;
 
 @Repository
 public interface DocumentoClienteRepository extends JpaRepository<DocumentoCliente, Integer> {
+    
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cliente", "cliente.clinica", "clinica"})
+    java.util.Optional<DocumentoCliente> findById(Integer id);
 
     /**
      * Devuelve los documentos activos de un cliente, ordenados por fecha descendente.
      */
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente", "cliente.clinica"})
     List<DocumentoCliente> findByClienteIdClienteAndActivoTrueOrderByFechaCreacionDesc(Integer idCliente);
 
     /**
      * Devuelve los documentos inactivos (en la papelera) de un cliente, ordenados por fecha descendente de borrado.
      */
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente"})
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente", "cliente.clinica"})
     List<DocumentoCliente> findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(Integer idCliente);
     
     /**
      * Devuelve los documentos activos vinculados a una cita específica.
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cita", "pago", "cliente", "cliente.clinica"})
     List<DocumentoCliente> findByCitaIdCitaAndActivoTrueOrderByFechaCreacionDesc(Integer idCita);
 
     /**
@@ -56,4 +60,10 @@ public interface DocumentoClienteRepository extends JpaRepository<DocumentoClien
      * Busca un documento por su ruta exacta en R2.
      */
     java.util.Optional<DocumentoCliente> findByPathArchivo(String pathArchivo);
+
+    /**
+     * Devuelve los documentos activos de un tipo concreto para un cliente.
+     * Usado para archivar consentimientos LOPD previos y garantizar idempotencia.
+     */
+    List<DocumentoCliente> findByClienteIdClienteAndTipoDocumentoAndActivoTrue(Integer idCliente, TipoDocumento tipoDocumento);
 }

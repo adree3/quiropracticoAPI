@@ -18,7 +18,6 @@ import java.util.List;
 public class DocumentoController {
 
     private final DocumentoService documentoService;
-
     @Autowired
     public DocumentoController(DocumentoService documentoService) {
         this.documentoService = documentoService;
@@ -30,10 +29,11 @@ public class DocumentoController {
             @PathVariable Integer idCliente,
             @RequestParam("file") MultipartFile file,
             @RequestParam("tipo") TipoDocumento tipo,
+            @RequestParam(value = "etiqueta", required = false) String etiqueta,
             @RequestParam(value = "idCita", required = false) Integer idCita,
             @RequestParam(value = "idPago", required = false) Integer idPago,
             @RequestParam(value = "notas", required = false) String notas) {
-        return ResponseEntity.ok(documentoService.subirDocumento(idCliente, file, tipo, idCita, idPago, notas));
+        return ResponseEntity.ok(documentoService.subirDocumento(idCliente, file, tipo, etiqueta, idCita, idPago, notas));
     }
 
     @Operation(summary = "Listar documentos de un cliente", description = "Devuelve metadatos y URLs prefirmadas temporales (15 min).")
@@ -78,10 +78,11 @@ public class DocumentoController {
     @PatchMapping("/{id}")
     public ResponseEntity<DocumentoDto> actualizarMetadatos(
             @PathVariable Integer id,
+            @RequestParam(value = "etiqueta", required = false) String etiqueta,
             @RequestParam(required = false) Integer idCita,
             @RequestParam(required = false) Integer idPago,
             @RequestParam(required = false) String notas) {
-        return ResponseEntity.ok(documentoService.actualizarMetadatos(id, idCita, idPago, notas));
+        return ResponseEntity.ok(documentoService.actualizarMetadatos(id, etiqueta, idCita, idPago, notas));
     }
 
     @Operation(summary = "Restaurar documento", description = "Devuelve un documento al estado activo.")

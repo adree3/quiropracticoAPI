@@ -67,7 +67,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
-    public DocumentoDto subirDocumento(Integer idCliente, MultipartFile file, TipoDocumento tipo, Integer idCita, Integer idPago, String notas) {
+    public DocumentoDto subirDocumento(Integer idCliente, MultipartFile file, TipoDocumento tipo, String etiqueta, Integer idCita, Integer idPago, String notas) {
         Cliente cliente = clienteRepository.findById(idCliente)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
@@ -102,6 +102,9 @@ public class DocumentoServiceImpl implements DocumentoService {
 
         // Paso 1: Pre-Check de Cuota (Uso de findById normal, sin bloqueos)
         Long clinicaId = TenantContext.getTenantId();
+        if (clinicaId == null || clinicaId == 0L) {
+            clinicaId = cliente.getClinica().getIdClinica();
+        }
         Clinica clinica = clinicaRepository.findById(clinicaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Clínica no encontrada"));
 
@@ -116,11 +119,13 @@ public class DocumentoServiceImpl implements DocumentoService {
         // Crear registro inicial en BD
         DocumentoCliente doc = new DocumentoCliente();
         doc.setCliente(cliente);
+        doc.setClinica(clinica);
         doc.setCita(cita);
         doc.setPago(pago);
         doc.setNotasMedicas(notas);
         doc.setNombreOriginal(file.getOriginalFilename());
         doc.setTipoDocumento(tipo);
+        doc.setEtiqueta(etiqueta);
         doc.setMimeType(detectedMimeType);
         doc.setTamanyoBytes(file.getSize());
         doc.setEstadoSubida(EstadoSubida.ACTIVO); // Estado tentativo
@@ -132,16 +137,16 @@ public class DocumentoServiceImpl implements DocumentoService {
         String extension = getExtension(file.getOriginalFilename());
         String path;
 
-        if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
+        if (tipo == TipoDocumento.FACTURACION) {
             path = storagePathBuilder.buildFacturacionPath(clinicaId, idCliente, docGuardado.getIdDocumento(), extension, docGuardado.getFechaCreacion());
         } else {
             // Nomenclatura semántica específica
             String subject;
-            if (tipo == TipoDocumento.RADIOGRAFIA || tipo == TipoDocumento.RESONANCIA) {
-                subject = "imagen";
+            if (tipo == TipoDocumento.PRUEBA_MEDICA) {
+                subject = "prueba_medica";
             } else if (tipo == TipoDocumento.JUSTIFICANTE_ASISTENCIA) {
                 subject = "cita_firmada";
-            } else if (tipo == TipoDocumento.JUSTIFICANTE_PAGO) {
+            } else if (tipo == TipoDocumento.FACTURACION) {
                 subject = (pago != null && pago.getServicioPagado() != null) 
                         ? "cobro_" + pago.getServicioPagado().getNombreServicio().toLowerCase().replace(" ", "_")
                         : "cobro";
@@ -162,7 +167,7 @@ public class DocumentoServiceImpl implements DocumentoService {
                 baseName = String.format("%s_%d", subject, docGuardado.getIdDocumento());
             }
             
-            if (tipo == TipoDocumento.RADIOGRAFIA || tipo == TipoDocumento.RESONANCIA) {
+            if (tipo == TipoDocumento.PRUEBA_MEDICA) {
                 path = storagePathBuilder.buildPruebasMedicasPath(clinicaId, idCliente, baseName, extension);
             } else if (tipo == TipoDocumento.CONSENTIMIENTO_LOPD || tipo == TipoDocumento.CONSENTIMIENTO_TRATAMIENTO) {
                 path = storagePathBuilder.buildConsentimientosPath(clinicaId, idCliente, baseName, extension);
@@ -240,6 +245,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DocumentoDto> listarDocumentosCliente(Integer idCliente) {
         return documentoRepository.findByClienteIdClienteAndActivoTrueOrderByFechaCreacionDesc(idCliente)
                 .stream()
@@ -248,6 +254,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DocumentoDto> listarDocumentosCita(Integer idCita) {
         return documentoRepository.findByCitaIdCitaAndActivoTrueOrderByFechaCreacionDesc(idCita)
                 .stream()
@@ -256,6 +263,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DocumentoDto> listarDocumentosEliminadosCliente(Integer idCliente) {
         return documentoRepository.findByClienteIdClienteAndActivoFalseOrderByFechaEliminacionLogicaDesc(idCliente)
                 .stream()
@@ -268,9 +276,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     public void eliminarDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
         
         doc.setActivo(false);
         doc.setFechaEliminacionLogica(LocalDateTime.now());
@@ -290,9 +296,7 @@ public class DocumentoServiceImpl implements DocumentoService {
     public DocumentoDto restaurarDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
         
         doc.setActivo(true);
         doc.setFechaEliminacionLogica(null);
@@ -320,18 +324,15 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     private String getThumbPath(String path) {
-        int dotIndex = path.lastIndexOf('.');
-        if (dotIndex == -1) return path + "_thumb.jpg";
-        return path.substring(0, dotIndex) + "_thumb.jpg";
+        return storagePathBuilder.buildThumbnailPath(path);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String obtenerUrlTemporal(Integer idDocumento, boolean download) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
 
         if (doc.getEstadoSubida() != EstadoSubida.ACTIVO || doc.getPathArchivo() == null) {
             throw new IllegalStateException("El documento no está listo para ser visualizado.");
@@ -344,12 +345,11 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String obtenerUrlThumbnail(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
 
         if (doc.getEstadoSubida() != EstadoSubida.ACTIVO || doc.getPathArchivo() == null) {
             throw new IllegalStateException("El documento no está listo para ser visualizado.");
@@ -366,11 +366,13 @@ public class DocumentoServiceImpl implements DocumentoService {
 
     @Override
     @Transactional
-    public DocumentoDto actualizarMetadatos(Integer idDocumento, Integer idCita, Integer idPago, String notas) {
+    public DocumentoDto actualizarMetadatos(Integer idDocumento, String etiqueta, Integer idCita, Integer idPago, String notas) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        validarAccesoTenant(doc);
+
+        if (etiqueta != null) {
+            doc.setEtiqueta(etiqueta);
         }
 
         // Regla de negocio: Si ya tiene cita, no se puede cambiar (para mantener integridad de nombres/R2)
@@ -408,22 +410,20 @@ public class DocumentoServiceImpl implements DocumentoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DocumentoDto obtenerDocumento(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
         return mapToDto(doc);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public byte[] obtenerArchivoPuro(Integer idDocumento) {
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
-        if (!doc.getCliente().getClinica().getIdClinica().equals(TenantContext.getTenantId())) {
-            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
-        }
+        validarAccesoTenant(doc);
         
         if (doc.getPathArchivo() == null) {
             throw new StorageException("El archivo no tiene un path asociado");
@@ -445,6 +445,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         dto.setNotasMedicas(doc.getNotasMedicas());
         dto.setNombreOriginal(doc.getNombreOriginal());
         dto.setTipoDocumento(doc.getTipoDocumento());
+        dto.setEtiqueta(doc.getEtiqueta());
         dto.setMimeType(doc.getMimeType());
         dto.setEstadoSubida(doc.getEstadoSubida());
         dto.setTamanyoBytes(doc.getTamanyoBytes());
@@ -461,5 +462,21 @@ public class DocumentoServiceImpl implements DocumentoService {
         }
         
         return dto;
+    }
+
+    private void validarAccesoTenant(DocumentoCliente doc) {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null || tenantId == 0L) {
+            return;
+        }
+        
+        Long docClinicaId = null;
+        if (doc.getCliente() != null && doc.getCliente().getClinica() != null) {
+            docClinicaId = doc.getCliente().getClinica().getIdClinica();
+        }
+        
+        if (docClinicaId != null && !docClinicaId.equals(tenantId)) {
+            throw new IllegalArgumentException("El documento no pertenece a esta clínica");
+        }
     }
 }

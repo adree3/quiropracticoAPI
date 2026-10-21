@@ -33,11 +33,15 @@ public class R2Config {
      */
     @Bean
     public S3Client s3Client() {
+        String cleanEndpoint = endpoint != null ? endpoint.trim() : "";
+        String cleanAccessKey = accessKey != null ? accessKey.trim() : "";
+        String cleanSecretKey = secretKey != null ? secretKey.trim() : "";
+
         return S3Client.builder()
-                .endpointOverride(URI.create(endpoint))
+                .endpointOverride(URI.create(cleanEndpoint))
                 .region(Region.of("auto"))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)
+                        AwsBasicCredentials.create(cleanAccessKey, cleanSecretKey)
                 ))
                 .build();
     }
@@ -49,16 +53,20 @@ public class R2Config {
      */
     @Bean
     public S3Presigner s3Presigner() {
+        String cleanEndpoint = endpoint != null ? endpoint.trim() : "";
+        String cleanAccessKey = accessKey != null ? accessKey.trim() : "";
+        String cleanSecretKey = secretKey != null ? secretKey.trim() : "";
+
         return S3Presigner.builder()
-                .endpointOverride(URI.create(endpoint))
+                .endpointOverride(URI.create(cleanEndpoint))
                 .region(Region.of("auto"))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(accessKey, secretKey)
+                        AwsBasicCredentials.create(cleanAccessKey, cleanSecretKey)
                 ))
                 .build();
     }
 
     public String getBucketName() {
-        return bucketName;
+        return bucketName != null ? bucketName.trim() : "";
     }
 }
