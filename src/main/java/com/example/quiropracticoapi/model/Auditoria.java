@@ -17,7 +17,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "auditoria", indexes = {
-    @Index(name = "idx_auditoria_fecha", columnList = "fechaHora")
+    @Index(name = "idx_auditoria_fecha", columnList = "fechaHora"),
+    @Index(name = "idx_auditoria_clinica_fecha", columnList = "clinica_id, fechaHora"),
+    @Index(name = "idx_auditoria_clinica_entidad_id", columnList = "clinica_id, entidad, id_entidad")
 })
 @Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Auditoria {
@@ -27,7 +29,7 @@ public class Auditoria {
     private Long idAuditoria;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "clinica_id", nullable = false)
+    @JoinColumn(name = "clinica_id", nullable = true)
     private Clinica clinica;
 
     @Column(nullable = false)
@@ -58,4 +60,7 @@ public class Auditoria {
     // Detalles técnicos en JSON (para administradores o soporte técnico)
     @Column(columnDefinition = "TEXT")
     private String detalles;
+
+    @Column(name = "ip_origen", length = 60)
+    private String ipOrigen;
 }

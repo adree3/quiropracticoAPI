@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/clinicas/settings")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_super_admin')")
 public class ClinicaSettingsController {
 
     private final ClinicaService clinicaService;

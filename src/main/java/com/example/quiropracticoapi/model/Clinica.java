@@ -49,6 +49,22 @@ public class Clinica extends BaseAuditEntity implements SoftDeletable, Auditable
     @Builder.Default
     private boolean activa = true;
 
+    @Column(name = "whatsapp_phone_number_id", length = 100)
+    private String whatsappPhoneNumberId;
+
+    @Column(name = "whatsapp_access_token", columnDefinition = "TEXT")
+    private String whatsappAccessToken;
+
+    @Column(name = "telefono_atencion_humana", length = 30)
+    private String telefonoAtencionHumana;
+
+    @Column(name = "logo_path", length = 500)
+    private String logoPath;
+
+    @Column(name = "usar_dos_telefonos_whatsapp", nullable = false)
+    @Builder.Default
+    private boolean usarDosTelefonosWhatsapp = false;
+
     @Override
     public boolean isEliminadoLogico() {
         return !activa;

@@ -5,8 +5,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 @SpringBootApplication
 @EnableAsync
+@EnableScheduling
 public class QuiropracticoApiApplication {
 
     public static void main(String[] args) {

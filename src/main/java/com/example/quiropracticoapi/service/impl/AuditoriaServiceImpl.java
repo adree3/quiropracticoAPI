@@ -86,17 +86,24 @@ public class AuditoriaServiceImpl {
     public void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado, String resumen) {
         try {
             String username;
+            Integer idUsuario = null;
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
             if (usernameForzado != null) {
                 username = usernameForzado;
             } else {
-                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                username = (auth != null && auth.isAuthenticated()) ? auth.getName() : "SISTEMA";
+                if (auth != null && auth.isAuthenticated()) {
+                    username = auth.getName();
+                    if (auth.getPrincipal() instanceof Usuario) {
+                        idUsuario = ((Usuario) auth.getPrincipal()).getIdUsuario();
+                    }
+                } else {
+                    username = "SISTEMA";
+                }
                 if ("anonymousUser".equals(username)) username = "SISTEMA";
             }
 
-            Integer idUsuario = null;
-            if (!username.startsWith("SISTEMA")) {
+            if (idUsuario == null && !username.startsWith("SISTEMA") && !username.startsWith("WHATSAPP_") && !username.startsWith("CRON_")) {
                 Usuario u = usuarioRepository.findByUsername(username).orElse(null);
                 if (u != null) idUsuario = u.getIdUsuario();
             }

@@ -20,7 +20,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/auditoria")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyAuthority('ROLE_admin', 'ROLE_super_admin')")
 public class AuditoriaController {
 
     private final AuditoriaServiceImpl auditoriaServiceImpl;
