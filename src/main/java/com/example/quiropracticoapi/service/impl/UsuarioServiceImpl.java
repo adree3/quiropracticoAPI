@@ -41,6 +41,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<UsuarioDto> getAllUsuarios(Boolean activo, Pageable pageable) {
         Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
         Page<Usuario> page;
@@ -53,6 +54,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public UsuarioDto createUser(RegisterRequest request) {
         Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
         if (usuarioRepository.existsByUsernameAndClinicaIdClinica(request.getUsername(), clinicaId)) {
@@ -83,6 +85,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public UsuarioDto updateUser(Integer id, RegisterRequest request) {
         Usuario user = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -117,6 +120,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void deleteUser(Integer id) {
         Usuario user = usuarioRepository.findById(id).orElseThrow();
         user.setActivo(false);
@@ -130,6 +134,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void recoverUser(Integer id) {
         Usuario user = usuarioRepository.findById(id).orElseThrow();
         user.setActivo(true);
@@ -143,6 +148,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void unlockUser(Integer id) {
         Usuario user = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -160,6 +166,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void lockUser(Integer id) {
         Usuario user = usuarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -170,6 +177,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UsuarioDto getMe(String usernameOrId) {
         // La obtención del perfil propio es GLOBAL. Usamos findByIdGlobal (Native Query)
         // para saltarnos el filtro de Hibernate sin manipular la sesión.
@@ -186,6 +194,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UsuarioDto getMeById(Integer id) {
         Usuario user = usuarioRepository.findByIdGlobal(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
@@ -193,6 +202,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void updatePassword(String usernameOrId, String currentPassword, String newPassword) {
         Usuario user;
         if (usernameOrId.startsWith("ID|")) {
@@ -207,6 +217,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void updatePasswordById(Integer id, String currentPassword, String newPassword) {
         Usuario user = usuarioRepository.findByIdGlobal(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado por ID: " + id));
@@ -231,6 +242,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public String uploadFotoPerfil(Integer idUsuario, org.springframework.web.multipart.MultipartFile file) {
         Usuario user = usuarioRepository.findByIdGlobal(idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -247,6 +259,9 @@ public class UsuarioServiceImpl implements UsuarioService {
         }
         
         Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        if ((clinicaId == null || clinicaId == 0L) && user.getClinica() != null) {
+            clinicaId = user.getClinica().getIdClinica();
+        }
         String path = storagePathBuilder.buildFotoPerfilPath(clinicaId, idUsuario, extension);
 
         try {
@@ -264,6 +279,7 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public byte[] getFotoPerfil(Integer idUsuario) {
         Usuario user = usuarioRepository.findByIdGlobal(idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));

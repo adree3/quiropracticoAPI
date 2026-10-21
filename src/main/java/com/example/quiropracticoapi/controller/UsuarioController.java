@@ -99,7 +99,7 @@ public class UsuarioController {
     public ResponseEntity<List<UsuarioDto>> getQuiropracticos() {
         Long clinicaId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
         return ResponseEntity.ok()
-                .body(usuarioRepository.findByRolAndClinicaIdClinica(Rol.quiropráctico, clinicaId)
+                .body(usuarioRepository.findByRolAndClinicaIdClinica(Rol.doctor, clinicaId)
                     .stream()
                     .map(u -> {
                         UsuarioDto dto = new UsuarioDto();

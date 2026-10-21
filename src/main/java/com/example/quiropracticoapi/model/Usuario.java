@@ -65,6 +65,15 @@ public class Usuario extends BaseAuditEntity implements UserDetails, SoftDeletab
     @Column(name = "foto_perfil_path", length = 500)
     private String fotoPerfilPath;
 
+    @Column(name = "debe_cambiar_password", nullable = false)
+    private boolean debeCambiarPassword = false;
+
+    @Column(name = "numero_colegiado", length = 50)
+    private String numeroColegiado;
+
+    @Column(name = "color_agenda", length = 15)
+    private String colorAgenda = "#3B82F6";
+
     @JsonIgnore
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

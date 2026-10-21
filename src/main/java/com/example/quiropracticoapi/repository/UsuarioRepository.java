@@ -50,7 +50,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario,Integer> {
      * Busca lo usuarios quiropracticos activos
      * @return lista de usuarios
      */
-    @Query("SELECT u FROM Usuario u WHERE u.rol = 'quiropráctico' AND u.activo = true AND u.clinica.idClinica = :clinicaId")
+    @Query("SELECT u FROM Usuario u WHERE u.rol = 'doctor' AND u.activo = true AND u.clinica.idClinica = :clinicaId")
     List<Usuario> findQuiropracticosActivos(@org.springframework.data.repository.query.Param("clinicaId") Long clinicaId);
 
     /**
