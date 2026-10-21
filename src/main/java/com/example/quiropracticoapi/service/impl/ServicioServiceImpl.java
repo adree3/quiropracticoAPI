@@ -55,6 +55,25 @@ public class ServicioServiceImpl implements ServicioService {
         Servicio servicio = new Servicio();
         mapDtoToEntity(request, servicio);
         servicio.setActivo(true);
+        
+        Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        com.example.quiropracticoapi.model.Clinica clinica = new com.example.quiropracticoapi.model.Clinica();
+        if (tenantId == null || tenantId == 0L) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.example.quiropracticoapi.model.Usuario u) {
+                if (u.getClinica() != null) {
+                    clinica.setIdClinica(u.getClinica().getIdClinica());
+                } else {
+                    clinica.setIdClinica(1L);
+                }
+            } else {
+                clinica.setIdClinica(1L);
+            }
+        } else {
+            clinica.setIdClinica(tenantId);
+        }
+        servicio.setClinica(clinica);
+
         Servicio guardado = servicioRepository.save(servicio);
 
         String detalle = "Nueva tarifa: " + guardado.getNombreServicio() + " (" + guardado.getPrecio() + "€)";

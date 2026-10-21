@@ -128,7 +128,7 @@ public class PagoServiceImpl implements PagoService {
         pago.setCliente(cliente);
         pago.setMonto(servicio.getPrecio());
         pago.setServicioPagado(servicio);
-        pago.setFechaCreacion(LocalDateTime.now());
+        pago.setServicioPagado(servicio);
         try {
             pago.setMetodoPago(MetodoPago.valueOf(request.getMetodoPago().toLowerCase()));
         } catch (IllegalArgumentException e) {
@@ -140,6 +140,19 @@ public class PagoServiceImpl implements PagoService {
         } else {
             pago.setPagado(request.getMetodoPago().equalsIgnoreCase("efectivo"));
         }
+        
+        // REGLA 1: Asignar clínica
+        if (cliente.getClinica() != null) {
+            pago.setClinica(cliente.getClinica());
+        }
+
+        if (pago.isPagado()) {
+            pago.setFechaPago(LocalDateTime.now());
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) {
+                pago.setCobradoPor(auth.getName());
+            }
+        }
 
         Pago pagoGuardado = pagoRepository.save(pago);
 
@@ -149,6 +162,11 @@ public class PagoServiceImpl implements PagoService {
         bono.setServicioComprado(servicio);
         bono.setPagoOrigen(pagoGuardado);
         bono.setFechaCompra(LocalDate.now());
+        
+        // REGLA 1: Asignar clínica
+        if (cliente.getClinica() != null) {
+            bono.setClinica(cliente.getClinica());
+        }
 
         int sesiones;
         if (servicio.getSesionesIncluidas() != null && servicio.getSesionesIncluidas() > 0) {
@@ -182,7 +200,11 @@ public class PagoServiceImpl implements PagoService {
         boolean estabaPagado = pago.isPagado();
         if (!estabaPagado) {
             pago.setPagado(true);
-            pago.setFechaCreacion(LocalDateTime.now());
+            pago.setFechaPago(LocalDateTime.now());
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) {
+                pago.setCobradoPor(auth.getName());
+            }
             pagoRepository.save(pago);
 
             auditoriaServiceImpl.registrarAccion(
@@ -202,7 +224,8 @@ public class PagoServiceImpl implements PagoService {
 
         if (pago.isPagado()) {
             pago.setPagado(false);
-            pago.setFechaCreacion(null);
+            pago.setFechaPago(null);
+            pago.setCobradoPor(null);
             pagoRepository.save(pago);
 
             auditoriaServiceImpl.registrarAccion(
@@ -226,7 +249,7 @@ public class PagoServiceImpl implements PagoService {
                 : (p.getNotas() != null ? p.getNotas() : "Cobro"));
         dto.setMonto(p.getMonto());
         dto.setMetodoPago(p.getMetodoPago() != null ? p.getMetodoPago().name() : "");
-        dto.setFechaPago(p.getFechaCreacion());
+        dto.setFechaPago(p.getFechaPago() != null ? p.getFechaPago() : p.getFechaCreacion());
         dto.setPagado(p.isPagado());
         return dto;
     }
@@ -243,7 +266,7 @@ public class PagoServiceImpl implements PagoService {
                 : (p.getNotas() != null ? p.getNotas() : "Cobro"));
         dto.setMonto(p.getMonto());
         dto.setMetodoPago(p.getMetodoPago() != null ? p.getMetodoPago().name() : "");
-        dto.setFechaPago(p.getFechaCreacion());
+        dto.setFechaPago(p.getFechaPago() != null ? p.getFechaPago() : p.getFechaCreacion());
         dto.setPagado(p.isPagado());
         return dto;
     }

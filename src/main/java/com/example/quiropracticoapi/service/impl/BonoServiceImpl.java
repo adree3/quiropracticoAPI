@@ -39,6 +39,7 @@ public class BonoServiceImpl implements BonoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BonoSeleccionDto> getBonosUsables(Integer idCliente) {
         return bonoActivoRepository.findBonosDisponiblesParaCliente(idCliente).stream()
                 .map(b -> {

@@ -26,6 +26,7 @@ public class Servicio extends BaseAuditEntity implements SoftDeletable, Auditabl
     @Column(name = "id_servicio")
     private Integer idServicio;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "clinica_id", nullable = false)
     private Clinica clinica;

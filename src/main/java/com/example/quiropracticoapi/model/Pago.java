@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@AttributeOverride(name = "fechaCreacion", column = @Column(name = "fecha_pago", nullable = false, updatable = false))
 @Table(name = "pagos")
 @Filter(name = "tenantFilter", condition = "clinica_id = :clinicaId")
 public class Pago extends BaseAuditEntity implements Auditable {
@@ -55,6 +54,21 @@ public class Pago extends BaseAuditEntity implements Auditable {
 
     @Column(name = "pagado", nullable = false)
     private boolean pagado = true;
+
+    @Column(name = "fecha_pago")
+    private LocalDateTime fechaPago;
+
+    @Column(name = "cobrado_por", length = 100)
+    private String cobradoPor;
+
+    @Column(name = "anulado", nullable = false)
+    private boolean anulado = false;
+
+    @Column(name = "fecha_anulacion")
+    private LocalDateTime fechaAnulacion;
+
+    @Column(name = "motivo_anulacion")
+    private String motivoAnulacion;
 
     @Override
     public String toResumen(TipoAccion accion) {

@@ -20,9 +20,10 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
     @EntityGraph(attributePaths = {"cliente", "servicioPagado"})
     List<Pago> findByClienteIdCliente(Integer clienteId);
 
-    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.cliente.idCliente = :idCliente AND p.pagado = false")
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.cliente.idCliente = :idCliente AND p.pagado = false AND p.anulado = false")
     Double sumDeudaPendienteByClienteId(@Param("idCliente") Integer idCliente);
 
+    @Query("SELECT COUNT(p) FROM Pago p WHERE p.cliente.idCliente = :idCliente AND p.pagado = false AND p.anulado = false")
     long countByClienteIdClienteAndPagadoFalse(Integer idCliente);
 
     /**
@@ -32,7 +33,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
     @EntityGraph(attributePaths = {"cliente", "servicioPagado"})
     @Query("SELECT p FROM Pago p " +
            "LEFT JOIN p.servicioPagado s " +
-           "WHERE (:pagado IS NULL OR p.pagado = :pagado) " +
+           "WHERE (:pagado IS NULL OR p.pagado = :pagado) AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
            "AND (:search IS NULL OR :search = '' OR (" +
@@ -52,27 +53,27 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
 
     // 1. KPI: Total Cobrado y Recuento de Ventas (Rango Dinámico)
     @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
     Double sumTotalCobrado(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     @Query("SELECT COUNT(p) FROM Pago p " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
     Long countTotalCobrado(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     // 2. KPI: Efectivo en Rango Dinámico
     @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND p.metodoPago = com.example.quiropracticoapi.model.enums.MetodoPago.efectivo " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
     Double sumEfectivoRango(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     @Query("SELECT COUNT(p) FROM Pago p " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND p.metodoPago = com.example.quiropracticoapi.model.enums.MetodoPago.efectivo " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
@@ -81,7 +82,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
     // 3. KPI: Ventas en Bonos (Rango Dinámico)
     @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
            "LEFT JOIN p.servicioPagado s " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
            "AND (s.tipo = com.example.quiropracticoapi.model.enums.TipoServicio.bono " +
@@ -90,7 +91,7 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
 
     @Query("SELECT COUNT(p) FROM Pago p " +
            "LEFT JOIN p.servicioPagado s " +
-           "WHERE p.pagado = true " +
+           "WHERE p.pagado = true AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin) " +
            "AND (s.tipo = com.example.quiropracticoapi.model.enums.TipoServicio.bono " +
@@ -98,28 +99,28 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
     Long countVentasBonos(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     // 4. KPI: Deuda Pendiente (Global y por Rango Dinámico)
-    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false")
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false AND p.anulado = false")
     Double sumDeudaPendienteGlobal();
 
-    @Query("SELECT COUNT(p) FROM Pago p WHERE p.pagado = false")
+    @Query("SELECT COUNT(p) FROM Pago p WHERE p.pagado = false AND p.anulado = false")
     Long countDeudaPendienteGlobal();
 
     @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p " +
-           "WHERE p.pagado = false " +
+           "WHERE p.pagado = false AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
     Double sumDeudaPendiente(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     @Query("SELECT COUNT(p) FROM Pago p " +
-           "WHERE p.pagado = false " +
+           "WHERE p.pagado = false AND p.anulado = false " +
            "AND (:fechaInicio IS NULL OR p.fechaCreacion >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR p.fechaCreacion <= :fechaFin)")
     Long countDeudaPendiente(@Param("fechaInicio") LocalDateTime fechaInicio, @Param("fechaFin") LocalDateTime fechaFin);
 
     // Compatibilidad legacy
-    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = true AND p.fechaCreacion BETWEEN :inicio AND :fin")
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = true AND p.anulado = false AND p.fechaCreacion BETWEEN :inicio AND :fin")
     Double sumTotalCobradoEnRango(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
-    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false")
+    @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false AND p.anulado = false")
     Double sumTotalPendienteGlobal();
 }

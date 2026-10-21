@@ -34,6 +34,7 @@ public interface BonoActivoRepository extends JpaRepository<BonoActivo, Integer>
      * @param clienteId identificador del cliente
      * @return lista de bonos disponibles
      */
+    @EntityGraph(attributePaths = {"servicioComprado", "cliente", "pagoOrigen"})
     @Query("SELECT b FROM BonoActivo b WHERE b.sesionesRestantes > 0 AND (" +
             "b.cliente.idCliente = :clienteId OR " +
             "b.cliente.idCliente IN (SELECT g.propietario.idCliente FROM GrupoFamiliar g WHERE g.beneficiario.idCliente = :clienteId)" +
