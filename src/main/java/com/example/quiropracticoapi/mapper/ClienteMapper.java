@@ -22,9 +22,11 @@ public class ClienteMapper {
         dto.setFechaNacimiento(cliente.getFechaNacimiento());
         dto.setTelefono(cliente.getTelefono());
         dto.setEmail(cliente.getEmail());
+        dto.setDniNie(cliente.getDniNie());
         dto.setDireccion(cliente.getDireccion());
         dto.setNotasPrivadas(cliente.getNotasPrivadas());
         dto.setActivo(cliente.isActivo());
+        dto.setLopdFirmada(cliente.isLopdFirmada());
         return dto;
     }
     /**

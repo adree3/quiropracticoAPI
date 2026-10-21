@@ -9,6 +9,7 @@ public interface ClienteDetalleProjection {
     String getEmail();
     String getTelefono();
     Boolean getActivo();
+    Boolean getLopdFirmada();
     LocalDateTime getFechaCreacion();
     
     // Campos calculados para evitar N+1

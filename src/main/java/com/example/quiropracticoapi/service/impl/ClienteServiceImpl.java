@@ -23,10 +23,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.example.quiropracticoapi.model.DocumentoCliente;
+import com.example.quiropracticoapi.model.enums.EstadoSubida;
+import com.example.quiropracticoapi.model.enums.TipoDocumento;
+import com.example.quiropracticoapi.repository.DocumentoClienteRepository;
+import com.example.quiropracticoapi.service.impl.PdfFirmaService;
+import com.example.quiropracticoapi.service.impl.R2StorageService;
+import com.example.quiropracticoapi.util.StoragePathBuilder;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class ClienteServiceImpl implements ClienteService {
@@ -40,8 +49,12 @@ public class ClienteServiceImpl implements ClienteService {
     private final BonoServiceImpl bonoServiceImpl;
     private final com.example.quiropracticoapi.repository.PagoRepository pagoRepository;
     private final com.example.quiropracticoapi.mapper.CitaMapper citaMapper;
-
-
+    private final PdfFirmaService pdfFirmaService;
+    private final R2StorageService r2StorageService;
+    private final StoragePathBuilder storagePathBuilder;
+    private final DocumentoClienteRepository documentoClienteRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final TransactionTemplate transactionTemplate;
 
     @Autowired
     public ClienteServiceImpl(
@@ -53,7 +66,13 @@ public class ClienteServiceImpl implements ClienteService {
             AuditoriaServiceImpl auditoriaServiceImpl, 
             BonoServiceImpl bonoServiceImpl,
             com.example.quiropracticoapi.repository.PagoRepository pagoRepository,
-            com.example.quiropracticoapi.mapper.CitaMapper citaMapper
+            com.example.quiropracticoapi.mapper.CitaMapper citaMapper,
+            PdfFirmaService pdfFirmaService,
+            R2StorageService r2StorageService,
+            StoragePathBuilder storagePathBuilder,
+            DocumentoClienteRepository documentoClienteRepository,
+            SimpMessagingTemplate messagingTemplate,
+            PlatformTransactionManager transactionManager
     ) {
         this.clienteRepository = clienteRepository;
         this.clienteMapper = clienteMapper;
@@ -64,10 +83,17 @@ public class ClienteServiceImpl implements ClienteService {
         this.bonoServiceImpl = bonoServiceImpl;
         this.pagoRepository = pagoRepository;
         this.citaMapper = citaMapper;
+        this.pdfFirmaService = pdfFirmaService;
+        this.r2StorageService = r2StorageService;
+        this.storagePathBuilder = storagePathBuilder;
+        this.documentoClienteRepository = documentoClienteRepository;
+        this.messagingTemplate = messagingTemplate;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<ClienteDto> getAllClientes(Boolean activo, Pageable pageable) {
         Page<Cliente> paginaClientes;
         if (activo == null) {
@@ -79,6 +105,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ClienteDto getClienteById(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No se encontro el cliente con id: " + id));
@@ -86,12 +113,34 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public ClienteDto createCliente(ClienteRequestDto clienteRequestDto) {
         clienteRepository.findByEmail(clienteRequestDto.getEmail()).ifPresent(c -> {
             throw new IllegalArgumentException("El email" + clienteRequestDto.getEmail() + " ya existe.");
         });
         Cliente cliente = clienteMapper.toCliente(clienteRequestDto);
         cliente.setActivo(true);
+        
+        Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        com.example.quiropracticoapi.model.Clinica clinica = new com.example.quiropracticoapi.model.Clinica();
+        if (tenantId == null || tenantId == 0L) {
+            // Intentar obtener la clínica del usuario autenticado o usar 1L por defecto
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.example.quiropracticoapi.model.Usuario) {
+                com.example.quiropracticoapi.model.Usuario u = (com.example.quiropracticoapi.model.Usuario) auth.getPrincipal();
+                if (u.getClinica() != null) {
+                    clinica.setIdClinica(u.getClinica().getIdClinica());
+                } else {
+                    clinica.setIdClinica(1L);
+                }
+            } else {
+                clinica.setIdClinica(1L);
+            }
+        } else {
+            clinica.setIdClinica(tenantId);
+        }
+        cliente.setClinica(clinica);
+
         Cliente clienteGuardado = clienteRepository.save(cliente);
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.CREAR,
@@ -104,6 +153,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public ClienteDto updateCliente(Integer id, ClienteRequestDto clienteRequestDto) {
         Cliente clienteExistente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + id));
@@ -125,6 +175,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void deleteCliente(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
@@ -145,6 +196,7 @@ public class ClienteServiceImpl implements ClienteService {
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<ClienteDto> findClientesWithFilters(
         Boolean activo,
         String texto,
@@ -173,6 +225,7 @@ public class ClienteServiceImpl implements ClienteService {
             dto.setEmail(p.getEmail());
             dto.setTelefono(p.getTelefono());
             dto.setActivo(p.getActivo());
+            dto.setLopdFirmada(p.getLopdFirmada() != null && p.getLopdFirmada());
             dto.setFechaAlta(p.getFechaCreacion());
             
             // Datos agregados ya calculados en SQL
@@ -226,6 +279,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void agregarFamiliar(Integer idPropietario, Integer idBeneficiario, String relacion) {
         if (idPropietario.equals(idBeneficiario)) {
             throw new IllegalArgumentException("Un cliente no puede ser familiar de sí mismo.");
@@ -243,6 +297,11 @@ public class ClienteServiceImpl implements ClienteService {
         grupo.setPropietario(propietario);
         grupo.setBeneficiario(beneficiario);
         grupo.setRelacion(relacion);
+        
+        // REGLA 1: Asignar clínica explícitamente desde la entidad padre
+        if (propietario.getClinica() != null) {
+            grupo.setClinica(propietario.getClinica());
+        }
 
         GrupoFamiliar guardado = grupoFamiliarRepository.save(grupo);
 
@@ -257,6 +316,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void recoverCliente(Integer id) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
@@ -275,6 +335,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void deleteFamiliar(Integer idGrupo) {
         GrupoFamiliar grupo = grupoFamiliarRepository.findById(idGrupo)
                 .orElseThrow(() -> new ResourceNotFoundException("Relación familiar no encontrada"));
@@ -293,5 +354,141 @@ public class ClienteServiceImpl implements ClienteService {
     private Cliente getClienteByIdEntity(Integer id) {
         return clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado: " + id));
+    }
+
+    @Override
+    public void solicitarFirmaLopd(Integer idCliente) {
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + idCliente));
+
+        String nombreCompleto = ((cliente.getNombre() != null ? cliente.getNombre() : "") + " " +
+                (cliente.getApellidos() != null ? cliente.getApellidos() : "")).trim();
+
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("action", "OPEN_LOPD");
+        payload.put("idCliente", idCliente);
+        payload.put("nombrePaciente", nombreCompleto);
+
+        messagingTemplate.convertAndSend("/topic/kiosk", payload);
+    }
+
+    public record LopdData(
+            Long clinicaId,
+            String nombreClinica,
+            String nombrePaciente,
+            String dniPaciente
+    ) {}
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public LopdData extraerDatosLopd(Integer idCliente) {
+        Cliente cliente = clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + idCliente));
+
+        Long clinicaId = (cliente.getClinica() != null && cliente.getClinica().getIdClinica() != null)
+                ? cliente.getClinica().getIdClinica()
+                : 1L;
+
+        String nombreClinica = (cliente.getClinica() != null && cliente.getClinica().getNombre() != null)
+                ? cliente.getClinica().getNombre()
+                : "Clínica Quiropráctica";
+
+        String nombrePaciente = ((cliente.getNombre() != null ? cliente.getNombre() : "") + " " +
+                (cliente.getApellidos() != null ? cliente.getApellidos() : "")).trim();
+
+        String dniPaciente = (cliente.getDniNie() != null && !cliente.getDniNie().isBlank())
+                ? cliente.getDniNie()
+                : "No especificado";
+
+        return new LopdData(clinicaId, nombreClinica, nombrePaciente, dniPaciente);
+    }
+
+    @Override
+    public byte[] generarBorradorLopd(Integer idCliente) {
+        LopdData datos = extraerDatosLopd(idCliente);
+        return pdfFirmaService.generarPdfLopd(datos.nombreClinica(), datos.nombrePaciente(), datos.dniPaciente(), null);
+    }
+
+    @Override
+    public java.util.Map<String, Object> firmarLopd(Integer idCliente, String firmaBase64) {
+        if (firmaBase64 == null || firmaBase64.isBlank()) {
+            throw new IllegalArgumentException("La firma en Base64 es obligatoria para rubricar la LOPD.");
+        }
+
+        // 1. Extraer los datos primitivos dentro de una transacción corta para evitar LazyInitializationException
+        LopdData datos = extraerDatosLopd(idCliente);
+
+        // 2. Generar el PDF final con la rúbrica en RAM (Zero-Storage previo a R2)
+        byte[] pdfBytes = pdfFirmaService.generarPdfLopd(datos.nombreClinica(), datos.nombrePaciente(), datos.dniPaciente(), firmaBase64);
+
+        // 3. Construir la ruta multi-tenant para R2 garantizando la extensión .pdf
+        String baseName = String.format("consentimiento_lopd_%d_%d", idCliente, System.currentTimeMillis());
+        String r2Key = storagePathBuilder.buildConsentimientosPath(datos.clinicaId(), idCliente, baseName, ".pdf");
+
+        // 4. Subir a Cloudflare R2 (I/O de red FUERA de transacción para proteger el pool de conexiones)
+        r2StorageService.storeBytes(pdfBytes, r2Key, "application/pdf");
+
+        // 5. Micro-transacción SQL para persistir el documento, archivar LOPDs previas (Idempotencia) y actualizar cliente
+        Cliente clienteActualizado = transactionTemplate.execute(status -> {
+            Cliente c = clienteRepository.findById(idCliente)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + idCliente));
+
+            c.setLopdFirmada(true);
+            Cliente guardado = clienteRepository.save(c);
+
+            // Idempotencia: Si ya existía algún consentimiento LOPD activo previo, se desactiva (archivado)
+            List<DocumentoCliente> lopsPrevias = documentoClienteRepository
+                    .findByClienteIdClienteAndTipoDocumentoAndActivoTrue(guardado.getIdCliente(), TipoDocumento.CONSENTIMIENTO_LOPD);
+            for (DocumentoCliente previa : lopsPrevias) {
+                previa.setActivo(false);
+                previa.setFechaEliminacionLogica(LocalDateTime.now());
+                previa.setEliminadoPor("RENOVACION_LOPD");
+                documentoClienteRepository.save(previa);
+            }
+
+            DocumentoCliente doc = new DocumentoCliente();
+            doc.setCliente(guardado);
+            doc.setClinica(guardado.getClinica());
+            doc.setNombreOriginal("Consentimiento_LOPD_" + guardado.getIdCliente() + ".pdf");
+            doc.setPathArchivo(r2Key);
+            doc.setTipoDocumento(TipoDocumento.CONSENTIMIENTO_LOPD);
+            doc.setEtiqueta("Consentimiento LOPD");
+            doc.setMimeType("application/pdf");
+            doc.setTamanyoBytes((long) pdfBytes.length);
+            doc.setEstadoSubida(EstadoSubida.ACTIVO);
+            doc.setActivo(true);
+            doc.setNotasMedicas("Consentimiento LOPD/RGPD firmado digitalmente desde el quiosco.");
+            doc.setFechaCreacion(LocalDateTime.now());
+            DocumentoCliente docGuardado = documentoClienteRepository.save(doc);
+
+            auditoriaServiceImpl.registrarAccion(
+                    TipoAccion.CREAR,
+                    "DOCUMENTO",
+                    docGuardado.getIdDocumento().toString(),
+                    "Consentimiento LOPD firmado y guardado en R2 para paciente: " + guardado.getNombre() + " " + guardado.getApellidos()
+            );
+
+            return guardado;
+        });
+
+        // 6. Notificar a Recepción y al quiosco que la LOPD ha sido firmada para actualizar el estado en tiempo real.
+        // NOTA CRÍTICA: NO enviamos CLOSE_SIGNATURE para no cortar la previsualización de 5s del PDF en el quiosco.
+        java.util.Map<String, Object> wsPayload = new java.util.HashMap<>();
+        wsPayload.put("action", "LOPD_FIRMADA");
+        wsPayload.put("idCliente", idCliente);
+        messagingTemplate.convertAndSend("/topic/clientes", wsPayload);
+        messagingTemplate.convertAndSend("/topic/kiosk", wsPayload);
+
+        // 7. Preparar respuesta con DTO enriquecido y PDF firmado en Base64
+        String signedPdfBase64 = java.util.Base64.getEncoder().encodeToString(pdfBytes);
+        String signedPdfUrl = r2StorageService.generatePresignedUrl(r2Key);
+
+        ClienteDto dto = enrichClienteDetalleDto(clienteActualizado != null ? clienteActualizado : clienteRepository.findById(idCliente).orElseThrow());
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("cliente", dto);
+        response.put("signedPdfBase64", signedPdfBase64);
+        response.put("signedPdfUrl", signedPdfUrl);
+
+        return response;
     }
 }

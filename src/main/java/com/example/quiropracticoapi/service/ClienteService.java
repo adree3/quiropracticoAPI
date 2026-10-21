@@ -81,4 +81,24 @@ public interface ClienteService {
      */
     void deleteFamiliar(Integer idGrupo);
 
+    /**
+     * Notifica al quiosco vía WebSocket para abrir la pantalla de firma de LOPD.
+     * @param idCliente Identificador del cliente.
+     */
+    void solicitarFirmaLopd(Integer idCliente);
+
+    /**
+     * Genera al vuelo en RAM el borrador del documento LOPD sin firma (Zero-Storage).
+     * @param idCliente Identificador del cliente.
+     * @return Bytes del PDF generado en memoria.
+     */
+    byte[] generarBorradorLopd(Integer idCliente);
+
+    /**
+     * Procesa la firma digital del documento LOPD, sube a Cloudflare R2 y actualiza la ficha del paciente.
+     * @param idCliente Identificador del cliente.
+     * @param firmaBase64 Trazo de la firma en Base64.
+     * @return Mapa con el DTO actualizado del cliente, signedPdfBase64 y signedPdfUrl.
+     */
+    java.util.Map<String, Object> firmarLopd(Integer idCliente, String firmaBase64);
 }

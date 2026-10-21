@@ -14,11 +14,14 @@ public class ClienteDto {
     private String nombre;
     private String apellidos;
     private LocalDate fechaNacimiento;
+    private String prefijoTelefono = "+34";
     private String telefono;
     private String email;
+    private String dniNie;
     private String direccion;
     private String notasPrivadas;
     private boolean activo;
+    private boolean lopdFirmada;
     
     // Campos extendidos para lista de clientes
     private Integer citasPendientes;

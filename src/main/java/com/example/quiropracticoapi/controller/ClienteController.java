@@ -205,4 +205,35 @@ public class ClienteController {
         clienteService.deleteFamiliar(idGrupo);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "Solicitar firma de LOPD en el quiosco", description = "Envía una notificación vía WebSocket (/topic/kiosk) para abrir la pantalla de firma de protección de datos.")
+    @PostMapping("/{id}/solicitar-firma-lopd")
+    public ResponseEntity<Void> solicitarFirmaLopd(@PathVariable Integer id) {
+        clienteService.solicitarFirmaLopd(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Obtener borrador de LOPD en PDF", description = "Genera en tiempo real en RAM el documento de consentimiento sin firma para previsualización (Zero-Storage).")
+    @GetMapping(value = "/{id}/borrador-lopd", produces = "application/pdf")
+    public ResponseEntity<byte[]> getBorradorLopd(@PathVariable Integer id) {
+        byte[] pdfBytes = clienteService.generarBorradorLopd(id);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdfBytes);
+    }
+
+    @Operation(summary = "Firmar y archivar consentimiento LOPD", description = "Recibe la firma en Base64, genera el PDF final, lo sube a R2, registra el documento y marca lopd_firmada en el cliente.")
+    @PostMapping("/{id}/firmar-lopd")
+    public ResponseEntity<java.util.Map<String, Object>> firmarLopd(
+            @PathVariable Integer id,
+            @RequestBody java.util.Map<String, String> payload
+    ) {
+        if (payload == null || !payload.containsKey("firmaBase64") ||
+            payload.get("firmaBase64") == null || payload.get("firmaBase64").trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String firmaBase64 = payload.get("firmaBase64");
+        java.util.Map<String, Object> response = clienteService.firmarLopd(id, firmaBase64);
+        return ResponseEntity.ok(response);
+    }
 }

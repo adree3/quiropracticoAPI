@@ -15,6 +15,9 @@ import java.util.Optional;
 
 @Repository
 public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
+    
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"clinica"})
+    Optional<Cliente> findById(Integer id);
 
     /**
      * Devuelve un page de clientes que este activos
@@ -52,6 +55,7 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
      */
     @Query(value = "SELECT c.id_cliente as idCliente, c.nombre as nombre, c.apellidos as apellidos, " +
            "c.email as email, c.telefono as telefono, c.activo as activo, c.fecha_alta as fecha_creacion, " +
+           "c.lopd_firmada as lopdFirmada, " +
            "(SELECT COUNT(*) FROM citas ct WHERE ct.id_cliente = c.id_cliente AND ct.estado = 'programada' AND ct.fecha_hora_inicio >= NOW()) as countCitasPendientes, " +
            "(SELECT COUNT(*) FROM bonos_activos b WHERE b.id_cliente = c.id_cliente AND b.sesiones_restantes > 0) as countBonosActivos, " +
            "CAST(EXISTS(SELECT 1 FROM grupos_familiares g WHERE g.id_cliente_propietario = c.id_cliente) AS SIGNED) as tieneFamiliares, " +

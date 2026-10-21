@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Consentimiento de Protección de Datos Médicos (LOPD-GDD / RGPD)</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
+
+        @media screen {
+            body {
+                background-color: #f4f6f8;
+                padding: 20px;
+                display: flex;
+                justify-content: center;
+            }
+            .hoja-a4 {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                margin: 0 auto;
+            }
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #2c3e50;
+            line-height: 1.45;
+            font-size: 11px;
+            margin: 0;
+            padding: 0;
+        }
+
+        .hoja-a4 {
+            background-color: #ffffff;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #1e3a5f;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+
+        .clinic-name {
+            font-size: 15px;
+            font-weight: bold;
+            color: #1e3a5f;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 4px 0;
+        }
+
+        .doc-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #34495e;
+            text-transform: uppercase;
+            margin: 0;
+            letter-spacing: 0.3px;
+        }
+
+        .doc-subtitle {
+            font-size: 9.5px;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+
+        .patient-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+        }
+
+        .patient-table th, .patient-table td {
+            border: 1px solid #dcdfe6;
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        .patient-table th {
+            background-color: #f5f7fa;
+            color: #1e3a5f;
+            text-align: left;
+            width: 20%;
+            font-weight: bold;
+        }
+
+        .patient-table td {
+            color: #2c3e50;
+            width: 30%;
+        }
+
+        .section-title {
+            font-size: 11.5px;
+            font-weight: bold;
+            color: #1e3a5f;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 3px;
+            margin-top: 10px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .legal-text {
+            text-align: justify;
+            margin-bottom: 8px;
+            font-size: 10px;
+            line-height: 1.4;
+            color: #333333;
+        }
+
+        .rgpd-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0 12px 0;
+            font-size: 9.5px;
+        }
+
+        .rgpd-summary-table th, .rgpd-summary-table td {
+            border: 1px solid #dcdfe6;
+            padding: 5px 8px;
+            vertical-align: top;
+        }
+
+        .rgpd-summary-table th {
+            background-color: #eef2f7;
+            color: #1e3a5f;
+            width: 25%;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .rgpd-summary-table td {
+            color: #4a5568;
+            line-height: 1.35;
+        }
+
+        .declaracion-box {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            margin-top: 10px;
+            margin-bottom: 14px;
+            font-size: 10px;
+            text-align: justify;
+            color: #1e293b;
+        }
+
+        .signature-section {
+            width: 100%;
+            margin-top: 14px;
+            border-collapse: collapse;
+        }
+
+        .signature-box {
+            border: 1px dashed #94a3b8;
+            background-color: #fbfcfe;
+            height: 90px;
+            text-align: center;
+            vertical-align: middle;
+            padding: 6px;
+        }
+
+        .signature-box img {
+            max-height: 75px;
+            max-width: 240px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .pending-sig {
+            color: #94a3b8;
+            font-style: italic;
+            font-size: 10.5px;
+        }
+
+        .signature-caption {
+            font-size: 9.5px;
+            color: #64748b;
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        .footer-note {
+            margin-top: 12px;
+            font-size: 8.5px;
+            color: #94a3b8;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 6px;
+        }
+    </style>
+</head>
+<body>
+<div class="hoja-a4">
+    <div class="header">
+        <div class="clinic-name" th:text="${nombreClinica}">CLÍNICA QUIROPRÁCTICA</div>
+        <div class="doc-title">CONSENTIMIENTO INFORMADO Y PROTECCIÓN DE DATOS DE SALUD</div>
+        <div class="doc-subtitle">Conforme al Reglamento General de Protección de Datos (UE) 2016/679 (RGPD) y Ley Orgánica 3/2018 (LOPD-GDD)</div>
+    </div>
+
+    <!-- IDENTIFICACIÓN DEL PACIENTE -->
+    <table class="patient-table">
+        <tr>
+            <th>Paciente:</th>
+            <td th:text="${nombrePaciente}">Nombre y Apellidos</td>
+            <th>DNI / NIE:</th>
+            <td th:text="${dniPaciente}">12345678X</td>
+        </tr>
+        <tr>
+            <th>Fecha de emisión:</th>
+            <td th:text="${fecha}">01/01/2026</td>
+            <th>Centro asistencial:</th>
+            <td th:text="${nombreClinica}">Clínica Quiropráctica</td>
+        </tr>
+    </table>
+
+    <!-- INFORMACIÓN BÁSICA SOBRE PROTECCIÓN DE DATOS -->
+    <div class="section-title">Información Básica sobre el Tratamiento de Datos Personales y de Salud</div>
+    <table class="rgpd-summary-table">
+        <tr>
+            <th>Responsable del Tratamiento</th>
+            <td th:text="${nombreClinica}">Clínica Quiropráctica</td>
+        </tr>
+        <tr>
+            <th>Finalidad Principal</th>
+            <td>Gestión integral de la historia clínica médica, diagnóstico, evaluación y tratamiento quiropráctico/fisioterapéutico, seguimiento clínico asistencial, recordatorio de citas y gestión de facturación/cobro.</td>
+        </tr>
+        <tr>
+            <th>Legitimación</th>
+            <td>Ejecución de la relación asistencial sanitaria y prestación de servicios de salud (Art. 6.1.b RGPD). Consentimiento explícito para el tratamiento de datos de salud de categoría especial (Art. 9.2.a RGPD).</td>
+        </tr>
+        <tr>
+            <th>Conservación de Datos</th>
+            <td>Los datos de la historia clínica se conservarán durante los plazos legalmente exigidos por la normativa sanitaria vigente (mínimo 5 años conforme a la Ley 41/2002 de Autonomía del Paciente).</td>
+        </tr>
+        <tr>
+            <th>Destinatarios</th>
+            <td>No se comunicarán datos a terceros salvo obligación legal expresa, derivación a especialistas facultativos expresamente autorizada por el paciente o soporte técnico bajo estricto contrato de encargo de tratamiento con garantías de seguridad médica.</td>
+        </tr>
+        <tr>
+            <th>Derechos del Paciente</th>
+            <td>Derecho de acceso, rectificación, supresión, limitación del tratamiento, portabilidad y oposición. Puede ejercer sus derechos dirigiéndose por escrito a la recepción de la clínica o ante la Agencia Española de Protección de Datos (AEPD).</td>
+        </tr>
+    </table>
+
+    <!-- DECLARACIÓN Y CONSENTIMIENTO EXPRESO -->
+    <div class="section-title">Declaración de Conformidad y Consentimiento Expreso</div>
+    <div class="declaracion-box">
+        Yo, <strong th:text="${nombrePaciente}">el paciente</strong>, con DNI/NIE <strong th:text="${dniPaciente}">DNI</strong>, declaro haber sido debidamente informado sobre el tratamiento de mis datos de carácter personal y de salud por parte de <strong th:text="${nombreClinica}">la clínica</strong>.<br /><br />
+        Otorgo de forma libre, específica, informada e inequívoca mi <strong>CONSENTIMIENTO EXPRESO</strong> para el tratamiento de mis datos personales y de salud con fines exclusivamente asistenciales, diagnósticos y de gestión clínica. Asimismo, confirmo que los datos facilitados son veraces y me comprometo a comunicar cualquier modificación de los mismos.
+    </div>
+
+    <!-- FIRMA DIGITAL -->
+    <table class="signature-section">
+        <tr>
+            <td style="width: 50%; vertical-align: top; padding-right: 15px;">
+                <div style="font-size: 10px; line-height: 1.5; color: #475569;">
+                    <strong>Lugar y fecha de firma:</strong><br />
+                    En las instalaciones del centro, a <span th:text="${fecha}">01/01/2026</span>.<br /><br />
+                    <em>Este documento ha sido generado electrónicamente y firmado mediante dispositivo digital homologado por el paciente.</em>
+                </div>
+            </td>
+            <td style="width: 50%; vertical-align: top;">
+                <div class="signature-box">
+                    <img th:if="${firmaBase64 != null}" th:src="'data:image/png;base64,' + ${firmaBase64}" />
+                    <div th:if="${firmaBase64 == null}" class="pending-sig">
+                        (Borrador previo - Pendiente de rúbrica en pantalla digital)
+                    </div>
+                </div>
+                <div class="signature-caption">Firma digital del paciente / representante legal</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer-note">
+        Documento médico-legal confidencial archivado en el expediente clínico digital del paciente. Sistema Zero-Storage conforme al Esquema Nacional de Seguridad y RGPD.
+    </div>
+</div>
+</body>
+</html>

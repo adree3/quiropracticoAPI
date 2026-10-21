@@ -1,0 +1,283 @@
+CREATE TABLE clinicas (
+    id_clinica BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    subdominio VARCHAR(255) UNIQUE,
+    cif_nif VARCHAR(20),
+    telefono VARCHAR(20),
+    email_contacto VARCHAR(100),
+    direccion VARCHAR(255),
+    duracion_cita_minutos INT NOT NULL,
+    limite_almacenamiento_bytes BIGINT NOT NULL,
+    almacenamiento_usado_bytes BIGINT NOT NULL,
+    activa BIT(1) NOT NULL,
+    whatsapp_phone_number_id VARCHAR(100),
+    whatsapp_access_token TEXT,
+    telefono_atencion_humana VARCHAR(30),
+    logo_path VARCHAR(500),
+    usar_dos_telefonos_whatsapp BIT(1) NOT NULL DEFAULT 0,
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL
+);
+
+CREATE TABLE usuarios (
+    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    nombre_completo VARCHAR(150) NOT NULL,
+    rol VARCHAR(30) NOT NULL,
+    activo BIT(1) NOT NULL,
+    intentos_fallidos INT,
+    cuenta_bloqueada BIT(1),
+    ultima_conexion DATETIME(6),
+    foto_perfil_path VARCHAR(500),
+    debe_cambiar_password BIT(1) NOT NULL DEFAULT 0,
+    numero_colegiado VARCHAR(50),
+    color_agenda VARCHAR(15) DEFAULT '#3B82F6',
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_usuarios_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    UNIQUE KEY uk_usuarios_username_clinica (username, clinica_id)
+);
+
+CREATE TABLE clientes (
+    id_cliente INT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    apellidos VARCHAR(150) NOT NULL,
+    dni_nie VARCHAR(20),
+    fecha_nacimiento DATE,
+    prefijo_telefono VARCHAR(10) NOT NULL,
+    telefono VARCHAR(25) NOT NULL,
+    email VARCHAR(100),
+    direccion VARCHAR(255),
+    notas_privadas TEXT,
+    sexo ENUM('M', 'F', 'OTRO'),
+    activo BIT(1) NOT NULL,
+    fecha_baja DATETIME(6),
+    baja_por VARCHAR(100),
+    fecha_alta DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_clientes_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    INDEX idx_cliente_activo (activo),
+    INDEX idx_cliente_email_clinica (email, clinica_id),
+    INDEX idx_cliente_telefono_clinica (telefono, clinica_id)
+);
+
+CREATE TABLE auditoria (
+    id_auditoria BIGINT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT,
+    fecha_hora DATETIME(6) NOT NULL,
+    id_usuario_responsable INT,
+    username_responsable VARCHAR(255),
+    accion VARCHAR(255) NOT NULL,
+    entidad VARCHAR(255) NOT NULL,
+    id_entidad VARCHAR(255),
+    resumen VARCHAR(500),
+    detalles TEXT,
+    ip_origen VARCHAR(60),
+    CONSTRAINT fk_auditoria_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    INDEX idx_auditoria_fecha (fecha_hora),
+    INDEX idx_auditoria_clinica_fecha (clinica_id, fecha_hora),
+    INDEX idx_auditoria_clinica_entidad_id (clinica_id, entidad, id_entidad)
+);
+
+CREATE TABLE servicios (
+    id_servicio INT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT NOT NULL,
+    nombre_servicio VARCHAR(150) NOT NULL,
+    precio DECIMAL(10,2) NOT NULL,
+    tipo VARCHAR(50) NOT NULL,
+    sesiones_incluidas INT,
+    activo BIT(1) NOT NULL,
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_servicios_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica)
+);
+
+CREATE TABLE pagos (
+    id_pago INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    metodo_pago VARCHAR(50) NOT NULL,
+    id_servicio_pagado INT,
+    notas VARCHAR(255),
+    pagado BIT(1) NOT NULL,
+    fecha_pago DATETIME(6),
+    cobrado_por VARCHAR(100),
+    anulado BIT(1) NOT NULL,
+    fecha_anulacion DATETIME(6),
+    motivo_anulacion VARCHAR(255),
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_pagos_cliente FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_pagos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    CONSTRAINT fk_pagos_servicio FOREIGN KEY (id_servicio_pagado) REFERENCES servicios(id_servicio)
+);
+
+CREATE TABLE bonos_activos (
+    id_bono_activo INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente INT NOT NULL,
+    id_servicio_comprado INT NOT NULL,
+    id_pago_origen INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    sesiones_totales INT NOT NULL,
+    sesiones_restantes INT NOT NULL,
+    fecha_compra DATE NOT NULL,
+    fecha_caducidad DATE,
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_bonos_cliente FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_bonos_servicio FOREIGN KEY (id_servicio_comprado) REFERENCES servicios(id_servicio),
+    CONSTRAINT fk_bonos_pago FOREIGN KEY (id_pago_origen) REFERENCES pagos(id_pago),
+    CONSTRAINT fk_bonos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    UNIQUE KEY uk_bonos_pago_origen (id_pago_origen)
+);
+
+CREATE TABLE citas (
+    id_cita INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente INT NOT NULL,
+    id_quiropractico INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    fecha_hora_inicio DATETIME(6) NOT NULL,
+    fecha_hora_fin DATETIME(6) NOT NULL,
+    estado VARCHAR(50) NOT NULL,
+    motivo_cancelacion TEXT,
+    firmada BIT(1) NOT NULL,
+    ruta_justificante VARCHAR(255),
+    firma_base64 MEDIUMTEXT,
+    notas_recepcion TEXT,
+    confirmada_whatsapp BIT(1) NOT NULL,
+    recordatorio_enviado BIT(1) NOT NULL,
+    wamid_ultimo_mensaje VARCHAR(150),
+    ruta_firma_s3 VARCHAR(500),
+    id_bono_preasignado INT,
+    fecha_creacion DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_citas_cliente FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_citas_usuario FOREIGN KEY (id_quiropractico) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_citas_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    INDEX idx_cita_fechas_estado (fecha_hora_inicio, fecha_hora_fin, estado),
+    INDEX idx_cita_estado (estado)
+);
+
+CREATE TABLE bloqueos_agenda (
+    id_bloqueo INT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT NOT NULL,
+    id_usuario_quiro INT,
+    fecha_hora_inicio DATETIME(6) NOT NULL,
+    fecha_hora_fin DATETIME(6) NOT NULL,
+    motivo VARCHAR(255),
+    CONSTRAINT fk_bloqueos_usuario FOREIGN KEY (id_usuario_quiro) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_bloqueos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica)
+);
+
+CREATE TABLE consumo_bono (
+    id_consumo INT AUTO_INCREMENT PRIMARY KEY,
+    id_bono_activo INT NOT NULL,
+    id_cita INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    sesiones_restantes_snapshot INT,
+    fecha_consumo DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_consumos_bono FOREIGN KEY (id_bono_activo) REFERENCES bonos_activos(id_bono_activo),
+    CONSTRAINT fk_consumos_cita FOREIGN KEY (id_cita) REFERENCES citas(id_cita),
+    CONSTRAINT fk_consumos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    UNIQUE KEY uk_consumo_cita (id_cita)
+);
+
+CREATE TABLE documentos_cliente (
+    id_documento INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    nombre_original VARCHAR(255) NOT NULL,
+    path_archivo VARCHAR(500),
+    id_cita INT,
+    id_pago INT,
+    notas_medicas TEXT,
+    tipo_documento VARCHAR(50) NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    estado_subida VARCHAR(20) NOT NULL,
+    error_descripcion VARCHAR(500),
+    tamanyo_bytes BIGINT NOT NULL,
+    activo BIT(1) NOT NULL,
+    fecha_eliminacion_logica DATETIME(6),
+    eliminado_por VARCHAR(100),
+    fecha_subida DATETIME(6) NOT NULL,
+    ultima_modificacion DATETIME(6),
+    creado_por VARCHAR(100),
+    modificado_por VARCHAR(100),
+    version BIGINT NOT NULL,
+    CONSTRAINT fk_documentos_cliente FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_documentos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    CONSTRAINT fk_documentos_cita FOREIGN KEY (id_cita) REFERENCES citas(id_cita),
+    CONSTRAINT fk_documentos_pago FOREIGN KEY (id_pago) REFERENCES pagos(id_pago),
+    INDEX idx_doc_cliente (id_cliente),
+    INDEX idx_doc_estado (estado_subida),
+    INDEX idx_doc_tipo (tipo_documento)
+);
+
+CREATE TABLE grupos_familiares (
+    id_grupo INT AUTO_INCREMENT PRIMARY KEY,
+    clinica_id BIGINT NOT NULL,
+    id_cliente_propietario INT NOT NULL,
+    id_cliente_beneficiario INT NOT NULL,
+    relacion VARCHAR(255),
+    CONSTRAINT fk_grupos_propietario FOREIGN KEY (id_cliente_propietario) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_grupos_beneficiario FOREIGN KEY (id_cliente_beneficiario) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_grupos_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica)
+);
+
+CREATE TABLE historial_clinico (
+    id_historial INT AUTO_INCREMENT PRIMARY KEY,
+    id_cita INT NOT NULL,
+    id_cliente INT NOT NULL,
+    id_quiropractico INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    fecha_sesion DATETIME(6) NOT NULL,
+    notas_subjetivo TEXT,
+    notas_objetivo TEXT,
+    ajustes_realizados TEXT,
+    plan_futuro TEXT,
+    CONSTRAINT fk_historial_cita FOREIGN KEY (id_cita) REFERENCES citas(id_cita),
+    CONSTRAINT fk_historial_cliente FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    CONSTRAINT fk_historial_usuario FOREIGN KEY (id_quiropractico) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_historial_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica),
+    UNIQUE KEY uk_historial_cita (id_cita)
+);
+
+CREATE TABLE horarios (
+    id_horario INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario_quiro INT NOT NULL,
+    clinica_id BIGINT NOT NULL,
+    dia_semana TINYINT NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL,
+    CONSTRAINT fk_horarios_usuario FOREIGN KEY (id_usuario_quiro) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_horarios_clinica FOREIGN KEY (clinica_id) REFERENCES clinicas(id_clinica)
+);

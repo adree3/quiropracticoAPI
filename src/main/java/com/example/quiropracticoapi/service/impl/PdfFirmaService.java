@@ -1,6 +1,5 @@
 package com.example.quiropracticoapi.service.impl;
 
-import com.example.quiropracticoapi.model.Cita;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -8,13 +7,8 @@ import org.thymeleaf.context.Context;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 @Service
 public class PdfFirmaService {
@@ -86,6 +80,68 @@ public class PdfFirmaService {
         } catch (Exception e) {
             throw new RuntimeException("Error al generar el PDF de la cartilla: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Genera el PDF del documento de consentimiento de Protección de Datos (LOPD/RGPD)
+     * a partir de datos primitivos desacoplados de Hibernate para evitar LazyInitializationException.
+     */
+    public byte[] generarPdfLopd(String nombreClinica, String nombrePaciente, String dniPaciente, String firmaBase64) {
+        try {
+            Context context = new Context();
+
+            String clinicClean = (nombreClinica != null && !nombreClinica.isBlank())
+                    ? nombreClinica
+                    : "Clínica Quiropráctica";
+
+            String pacienteClean = (nombrePaciente != null && !nombrePaciente.isBlank())
+                    ? nombrePaciente
+                    : "Paciente";
+
+            String dniClean = (dniPaciente != null && !dniPaciente.isBlank())
+                    ? dniPaciente
+                    : "No especificado";
+
+            String fechaActual = java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+            context.setVariable("nombreClinica", clinicClean);
+            context.setVariable("nombrePaciente", pacienteClean);
+            context.setVariable("dniPaciente", dniClean);
+            context.setVariable("fecha", fechaActual);
+            context.setVariable("firmaBase64", limpiarBase64(firmaBase64));
+
+            String htmlContent = templateEngine.process("consentimiento_lopd", context);
+
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(htmlContent);
+            renderer.layout();
+            renderer.createPDF(bos);
+
+            return bos.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Error al generar el PDF de consentimiento LOPD: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sobrecarga de conveniencia que extrae los datos de la entidad Cliente.
+     */
+    public byte[] generarPdfLopd(com.example.quiropracticoapi.model.Cliente cliente, String firmaBase64) {
+        String nombreClinica = (cliente != null && cliente.getClinica() != null && cliente.getClinica().getNombre() != null)
+                ? cliente.getClinica().getNombre()
+                : "Clínica Quiropráctica";
+
+        String nombrePaciente = cliente != null
+                ? ((cliente.getNombre() != null ? cliente.getNombre() : "") + " " +
+                   (cliente.getApellidos() != null ? cliente.getApellidos() : "")).trim()
+                : "Paciente";
+
+        String dniPaciente = (cliente != null && cliente.getDniNie() != null && !cliente.getDniNie().isBlank())
+                ? cliente.getDniNie()
+                : "No especificado";
+
+        return generarPdfLopd(nombreClinica, nombrePaciente, dniPaciente, firmaBase64);
     }
 
     /**
