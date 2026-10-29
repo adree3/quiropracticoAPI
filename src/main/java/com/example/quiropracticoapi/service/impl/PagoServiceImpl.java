@@ -15,6 +15,8 @@ import com.example.quiropracticoapi.repository.BonoActivoRepository;
 import com.example.quiropracticoapi.repository.ClienteRepository;
 import com.example.quiropracticoapi.repository.PagoRepository;
 import com.example.quiropracticoapi.repository.ServicioRepository;
+import com.example.quiropracticoapi.model.enums.TipoFactura;
+import com.example.quiropracticoapi.service.FacturacionService;
 import com.example.quiropracticoapi.service.PagoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -36,18 +38,21 @@ public class PagoServiceImpl implements PagoService {
     private final ClienteRepository clienteRepository;
     private final ServicioRepository servicioRepository;
     private final AuditoriaServiceImpl auditoriaServiceImpl;
+    private final FacturacionService facturacionService;
 
     @Autowired
     public PagoServiceImpl(PagoRepository pagoRepository, 
                            BonoActivoRepository bonoActivoRepository, 
                            ClienteRepository clienteRepository, 
                            ServicioRepository servicioRepository, 
-                           AuditoriaServiceImpl auditoriaServiceImpl) {
+                           AuditoriaServiceImpl auditoriaServiceImpl,
+                           FacturacionService facturacionService) {
         this.pagoRepository = pagoRepository;
         this.bonoActivoRepository = bonoActivoRepository;
         this.clienteRepository = clienteRepository;
         this.servicioRepository = servicioRepository;
         this.auditoriaServiceImpl = auditoriaServiceImpl;
+        this.facturacionService = facturacionService;
     }
 
     @Override
@@ -135,23 +140,14 @@ public class PagoServiceImpl implements PagoService {
             throw new IllegalArgumentException("Método de pago inválido: " + request.getMetodoPago());
         }
 
-        if (request.getPagado() != null) {
-            pago.setPagado(request.getPagado());
-        } else {
-            pago.setPagado(request.getMetodoPago().equalsIgnoreCase("efectivo"));
-        }
+        // Erradicación de auto-pago: Todo pago nace en estado pendiente (pagado = false, fechaPago = null, cobradoPor = null)
+        pago.setPagado(false);
+        pago.setFechaPago(null);
+        pago.setCobradoPor(null);
         
         // REGLA 1: Asignar clínica
         if (cliente.getClinica() != null) {
             pago.setClinica(cliente.getClinica());
-        }
-
-        if (pago.isPagado()) {
-            pago.setFechaPago(LocalDateTime.now());
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null) {
-                pago.setCobradoPor(auth.getName());
-            }
         }
 
         Pago pagoGuardado = pagoRepository.save(pago);
@@ -206,6 +202,9 @@ public class PagoServiceImpl implements PagoService {
                 pago.setCobradoPor(auth.getName());
             }
             pagoRepository.save(pago);
+
+            // Único trigger de emisión automática de factura simplificada
+            facturacionService.emitirFacturaPorPagos(List.of(pago.getIdPago()), pago.getCliente(), pago.getClinica(), TipoFactura.SIMPLIFICADA);
 
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.EDITAR,
