@@ -43,6 +43,7 @@ public class ClienteMapper {
         cliente.setFechaNacimiento(requestDto.getFechaNacimiento());
         cliente.setTelefono(requestDto.getTelefono());
         cliente.setEmail(requestDto.getEmail());
+        cliente.setDniNie(requestDto.getDniNie());
         cliente.setDireccion(requestDto.getDireccion());
         cliente.setNotasPrivadas(requestDto.getNotasPrivadas());
         return cliente;
@@ -60,6 +61,7 @@ public class ClienteMapper {
         cliente.setFechaNacimiento(requestDto.getFechaNacimiento());
         cliente.setTelefono(requestDto.getTelefono());
         cliente.setEmail(requestDto.getEmail());
+        cliente.setDniNie(requestDto.getDniNie());
         cliente.setDireccion(requestDto.getDireccion());
         cliente.setNotasPrivadas(requestDto.getNotasPrivadas());
     }

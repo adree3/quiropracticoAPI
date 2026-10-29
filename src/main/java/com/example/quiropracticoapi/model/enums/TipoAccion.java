@@ -13,5 +13,7 @@ public enum TipoAccion {
     UNLOCK,
     NOTIFICACION,
     ERROR,
+    VISUALIZAR,
+    DESCARGAR,
     DESHACER // Historico: ya no se generan nuevas acciones de este tipo
 }

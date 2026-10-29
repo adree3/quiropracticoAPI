@@ -1,5 +1,6 @@
 package com.example.quiropracticoapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -30,6 +31,10 @@ public class ClienteRequestDto {
     private LocalDate fechaNacimiento;
 
     private String direccion;
+
+    @Size(max = 20, message = "El DNI/NIE no puede tener más de 20 caracteres")
+    @JsonAlias({"dni", "documento"})
+    private String dniNie;
 
     private String notasPrivadas;
 }

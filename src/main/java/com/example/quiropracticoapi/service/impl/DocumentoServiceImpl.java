@@ -330,12 +330,24 @@ public class DocumentoServiceImpl implements DocumentoService {
     @Override
     @Transactional(readOnly = true)
     public String obtenerUrlTemporal(Integer idDocumento, boolean download) {
+        String username = (org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null)
+                ? org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName()
+                : "SISTEMA";
+
         DocumentoCliente doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento no encontrado"));
         validarAccesoTenant(doc);
 
         if (doc.getEstadoSubida() != EstadoSubida.ACTIVO || doc.getPathArchivo() == null) {
             throw new IllegalStateException("El documento no está listo para ser visualizado.");
+        }
+
+        try {
+            TipoAccion accion = download ? TipoAccion.DESCARGAR : TipoAccion.VISUALIZAR;
+            String detalles = (download ? "Descarga de" : "Visualización de") + " documento: " + doc.getNombreOriginal() + " (Tipo: " + doc.getTipoDocumento() + ")";
+            auditoriaService.registrarAccion(accion, "DOCUMENTO", doc.getIdDocumento().toString(), detalles, username);
+        } catch (Exception e) {
+            log.error("Error al registrar auditoría de acceso documental para id {}: {}", idDocumento, e.getMessage());
         }
 
         if (download) {

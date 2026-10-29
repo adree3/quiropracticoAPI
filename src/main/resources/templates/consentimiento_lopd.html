@@ -164,9 +164,9 @@
             padding: 6px;
         }
 
-        .signature-box img {
-            max-height: 75px;
-            max-width: 240px;
+        .signature-box img, .sig-img {
+            height: 70px;
+            width: auto;
             display: inline-block;
             vertical-align: middle;
         }
@@ -266,7 +266,7 @@
             </td>
             <td style="width: 50%; vertical-align: top;">
                 <div class="signature-box">
-                    <img th:if="${firmaBase64 != null}" th:src="'data:image/png;base64,' + ${firmaBase64}" />
+                    <img th:if="${firmaBase64 != null}" th:src="'data:image/png;base64,' + ${firmaBase64}" class="sig-img" style="height: 70px; width: auto; display: inline-block; vertical-align: middle;" />
                     <div th:if="${firmaBase64 == null}" class="pending-sig">
                         (Borrador previo - Pendiente de rúbrica en pantalla digital)
                     </div>

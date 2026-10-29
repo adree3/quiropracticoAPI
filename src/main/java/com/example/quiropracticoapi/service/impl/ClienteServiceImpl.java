@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 import com.example.quiropracticoapi.model.DocumentoCliente;
@@ -435,13 +436,15 @@ public class ClienteServiceImpl implements ClienteService {
             c.setLopdFirmada(true);
             Cliente guardado = clienteRepository.save(c);
 
-            // Idempotencia: Si ya existía algún consentimiento LOPD activo previo, se desactiva (archivado)
+            // Trazabilidad Legal e Idempotencia: Los consentimientos LOPD previos se mantienen activos como históricos/revocados
             List<DocumentoCliente> lopsPrevias = documentoClienteRepository
                     .findByClienteIdClienteAndTipoDocumentoAndActivoTrue(guardado.getIdCliente(), TipoDocumento.CONSENTIMIENTO_LOPD);
             for (DocumentoCliente previa : lopsPrevias) {
-                previa.setActivo(false);
-                previa.setFechaEliminacionLogica(LocalDateTime.now());
-                previa.setEliminadoPor("RENOVACION_LOPD");
+                previa.setActivo(true);
+                previa.setEtiqueta("LOPD (Histórico / Revocada)");
+                previa.setNotasMedicas((previa.getNotasMedicas() != null ? previa.getNotasMedicas() : "") +
+                        "\n[SISTEMA] Documento invalidado y sustituido por una nueva firma el " +
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
                 documentoClienteRepository.save(previa);
             }
 
