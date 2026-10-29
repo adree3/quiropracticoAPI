@@ -49,11 +49,15 @@ public class Pago extends BaseAuditEntity implements Auditable {
     @JoinColumn(name = "id_servicio_pagado", nullable = true)
     private Servicio servicioPagado;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_factura")
+    private Factura factura;
+
     @Column(name = "notas", length = 255)
     private String notas;
 
     @Column(name = "pagado", nullable = false)
-    private boolean pagado = true;
+    private boolean pagado = false;
 
     @Column(name = "fecha_pago")
     private LocalDateTime fechaPago;

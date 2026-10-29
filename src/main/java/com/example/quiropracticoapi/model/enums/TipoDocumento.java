@@ -7,5 +7,6 @@ public enum TipoDocumento {
     CONSENTIMIENTO_TRATAMIENTO,
     INFORME_MEDICO,
     FACTURACION,
+    FACTURA,
     OTRO
 }

@@ -65,6 +65,10 @@ public class Clinica extends BaseAuditEntity implements SoftDeletable, Auditable
     @Builder.Default
     private boolean usarDosTelefonosWhatsapp = false;
 
+    public String getNombreClinica() {
+        return this.nombre;
+    }
+
     @Override
     public boolean isEliminadoLogico() {
         return !activa;
