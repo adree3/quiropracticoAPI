@@ -8,7 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 @EnableScheduling
 public class QuiropracticoApiApplication {
 

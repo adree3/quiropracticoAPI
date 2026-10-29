@@ -13,5 +13,7 @@ public interface AuditoriaService {
      */
     void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles);
 
+    void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado);
 
+    void registrarAccion(TipoAccion accion, String entidad, String idEntidad, String detalles, String usernameForzado, String resumen);
 }

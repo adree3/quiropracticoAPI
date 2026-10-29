@@ -17,10 +17,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import com.example.quiropracticoapi.service.AuditoriaService;
 import java.util.List;
 
 @Service
-public class AuditoriaServiceImpl {
+public class AuditoriaServiceImpl implements AuditoriaService {
 
     private final AuditoriaRepository auditoriaRepository;
     private final UsuarioRepository usuarioRepository;

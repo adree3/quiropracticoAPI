@@ -11,7 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.concurrent.Executor;
 
 @Configuration
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 public class AsyncConfig implements AsyncConfigurer {
 
     @Override
