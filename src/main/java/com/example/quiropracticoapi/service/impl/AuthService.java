@@ -90,6 +90,7 @@ public class AuthService {
         });
     }
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (request.getUsername().contains("|")) {
             throw new IllegalArgumentException("El nombre de usuario no puede contener el carácter '|'");
@@ -105,6 +106,19 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setIntentosFallidos(0);
         user.setCuentaBloqueada(false);
+
+        Long tenantId = com.example.quiropracticoapi.config.TenantContext.getTenantId();
+        if (tenantId == null || tenantId == 0L) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Usuario authUser && authUser.getClinica() != null) {
+                tenantId = authUser.getClinica().getIdClinica();
+            }
+        }
+        if (tenantId != null && tenantId > 0L) {
+            com.example.quiropracticoapi.model.Clinica clinica = new com.example.quiropracticoapi.model.Clinica();
+            clinica.setIdClinica(tenantId);
+            user.setClinica(clinica);
+        }
 
         Usuario guardado = usuarioRepository.save(user);
         String jwtToken = jwtService.generateToken(guardado);
