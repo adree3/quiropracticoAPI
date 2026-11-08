@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,6 +26,16 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
 
     @Query("SELECT COUNT(p) FROM Pago p WHERE p.cliente.idCliente = :idCliente AND p.pagado = false AND p.anulado = false")
     long countByClienteIdClienteAndPagadoFalse(Integer idCliente);
+
+    @Query("SELECT DISTINCT p.cliente.idCliente FROM Pago p WHERE p.cliente.idCliente IN :clienteIds AND p.pagado = false AND p.anulado = false")
+    java.util.Set<Integer> findClientesConDeudaPendiente(@Param("clienteIds") java.util.Collection<Integer> clienteIds);
+
+    @Query("SELECT DISTINCT p.cliente.idCliente FROM Pago p WHERE p.cliente.idCliente IN :clienteIds AND p.pagado = true AND p.anulado = false")
+    java.util.Set<Integer> findClientesConPagosRealizados(@Param("clienteIds") java.util.Collection<Integer> clienteIds);
+
+    @Query("SELECT p.cliente.idCliente, p.fechaPago, p.fechaCreacion FROM Pago p " +
+           "WHERE p.cliente.idCliente IN :clienteIds AND p.pagado = true AND p.anulado = false")
+    List<Object[]> findPagosRealizadosPorClientes(@Param("clienteIds") java.util.Collection<Integer> clienteIds);
 
     /**
      * Búsqueda paginada y filtrada con parámetros dinámicos procesada nativamente en MySQL.
@@ -123,4 +134,11 @@ public interface PagoRepository extends JpaRepository<Pago, Integer> {
 
     @Query("SELECT COALESCE(SUM(p.monto), 0.0) FROM Pago p WHERE p.pagado = false AND p.anulado = false")
     Double sumTotalPendienteGlobal();
+
+    @Query("SELECT p.metodoPago, SUM(p.monto), COUNT(p) FROM Pago p " +
+           "WHERE p.clinica.idClinica = :clinicaId " +
+           "AND FUNCTION('DATE', p.fechaPago) = :fecha " +
+           "AND p.pagado = true AND p.anulado = false " +
+           "GROUP BY p.metodoPago")
+    List<Object[]> obtenerAgrupacionArqueo(@Param("clinicaId") Long clinicaId, @Param("fecha") LocalDate fecha);
 }

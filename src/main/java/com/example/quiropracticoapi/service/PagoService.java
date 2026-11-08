@@ -1,4 +1,5 @@
 package com.example.quiropracticoapi.service;
+import com.example.quiropracticoapi.dto.ArqueoCajaDTO;
 import com.example.quiropracticoapi.dto.BalanceDto;
 import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.PagoResponseDto;
@@ -6,6 +7,7 @@ import com.example.quiropracticoapi.dto.PagosKpiDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,4 +28,6 @@ public interface PagoService {
     void confirmarPago(Integer idPago);
 
     void pendientePago(Integer idPago);
+
+    ArqueoCajaDTO obtenerArqueoDiario(LocalDate fecha);
 }

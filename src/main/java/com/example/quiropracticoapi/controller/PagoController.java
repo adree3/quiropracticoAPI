@@ -1,4 +1,5 @@
 package com.example.quiropracticoapi.controller;
+import com.example.quiropracticoapi.dto.ArqueoCajaDTO;
 import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.PagoResponseDto;
 import com.example.quiropracticoapi.dto.PagosKpiDto;
@@ -16,6 +17,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -105,5 +107,14 @@ public class PagoController {
     public ResponseEntity<Void> pendientePago(@PathVariable Integer id) {
         pagoService.pendientePago(id);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Obtener arqueo de caja diario", description = "Calcula el balance agregado de operaciones por método de pago para la fecha seleccionada")
+    @GetMapping("/arqueo")
+    public ResponseEntity<ArqueoCajaDTO> obtenerArqueoDiario(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha
+    ) {
+        LocalDate fechaEfectiva = (fecha != null) ? fecha : LocalDate.now();
+        return ResponseEntity.ok(pagoService.obtenerArqueoDiario(fechaEfectiva));
     }
 }

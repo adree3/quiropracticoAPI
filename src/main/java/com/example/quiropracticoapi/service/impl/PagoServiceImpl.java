@@ -1,9 +1,15 @@
 package com.example.quiropracticoapi.service.impl;
+import com.example.quiropracticoapi.config.TenantContext;
+import com.example.quiropracticoapi.dto.ArqueoCajaDTO;
 import com.example.quiropracticoapi.dto.BalanceDto;
 import com.example.quiropracticoapi.dto.PagoDto;
 import com.example.quiropracticoapi.dto.PagoResponseDto;
 import com.example.quiropracticoapi.dto.PagosKpiDto;
 import com.example.quiropracticoapi.dto.VentaBonoRequestDto;
+import com.example.quiropracticoapi.model.Usuario;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.math.BigDecimal;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.model.BonoActivo;
 import com.example.quiropracticoapi.model.Cliente;
@@ -268,5 +274,77 @@ public class PagoServiceImpl implements PagoService {
         dto.setFechaPago(p.getFechaPago() != null ? p.getFechaPago() : p.getFechaCreacion());
         dto.setPagado(p.isPagado());
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArqueoCajaDTO obtenerArqueoDiario(LocalDate fecha) {
+        LocalDate fechaConsulta = (fecha != null) ? fecha : LocalDate.now();
+
+        Long clinicaId = TenantContext.getTenantId();
+        if (clinicaId == null || clinicaId == 0L) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Usuario usuario && usuario.getClinica() != null) {
+                clinicaId = usuario.getClinica().getIdClinica();
+            }
+        }
+        if (clinicaId == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Error crítico de seguridad: No se ha podido determinar la clínica del usuario autenticado. Acceso al arqueo denegado.");
+        }
+
+        List<Object[]> resultados = pagoRepository.obtenerAgrupacionArqueo(clinicaId, fechaConsulta);
+
+        ArqueoCajaDTO arqueo = new ArqueoCajaDTO();
+        BigDecimal total = BigDecimal.ZERO;
+        int cantidadOperaciones = 0;
+
+        for (Object[] fila : resultados) {
+            if (fila == null || fila.length < 3) {
+                continue;
+            }
+
+            MetodoPago metodo = null;
+            if (fila[0] instanceof MetodoPago) {
+                metodo = (MetodoPago) fila[0];
+            } else if (fila[0] != null) {
+                try {
+                    metodo = MetodoPago.valueOf(fila[0].toString().toLowerCase());
+                } catch (IllegalArgumentException e) {
+                    try {
+                        metodo = MetodoPago.valueOf(fila[0].toString().toUpperCase());
+                    } catch (IllegalArgumentException ignored) {
+                    }
+                }
+            }
+
+            BigDecimal suma = BigDecimal.ZERO;
+            if (fila[1] instanceof BigDecimal) {
+                suma = (BigDecimal) fila[1];
+            } else if (fila[1] instanceof Number) {
+                suma = BigDecimal.valueOf(((Number) fila[1]).doubleValue());
+            }
+
+            long conteo = 0L;
+            if (fila[2] instanceof Number) {
+                conteo = ((Number) fila[2]).longValue();
+            }
+
+            if (metodo != null) {
+                switch (metodo) {
+                    case efectivo -> arqueo.setEfectivo(suma);
+                    case tarjeta -> arqueo.setTarjeta(suma);
+                    case transferencia -> arqueo.setTransferencia(suma);
+                    default -> {}
+                }
+            }
+
+            total = total.add(suma);
+            cantidadOperaciones += (int) conteo;
+        }
+
+        arqueo.setTotal(total);
+        arqueo.setCantidadOperaciones(cantidadOperaciones);
+
+        return arqueo;
     }
 }
