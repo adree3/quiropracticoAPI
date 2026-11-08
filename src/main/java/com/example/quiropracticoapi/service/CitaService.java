@@ -25,6 +25,8 @@ public interface CitaService {
 
     CitaDto updateCita(Integer idCita, CitaRequestDto request);
 
+    List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir, Integer duracionMinutos);
+
     List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir);
 
     Page<CitaDto> getAllCitas(String search, EstadoCita estado, LocalDate fechaInicio, LocalDate fechaFin, Pageable pageable);
@@ -36,4 +38,6 @@ public interface CitaService {
     CitaDto procesarFirma(Integer idCita, String base64Firma);
     
     byte[] generarBorradorPdf(Integer idCita);
+
+    CitaDto reprogramarCita(Integer idCita, com.example.quiropracticoapi.dto.ReprogramarCitaDto dto);
 }

@@ -3,6 +3,7 @@ package com.example.quiropracticoapi.controller;
 import com.example.quiropracticoapi.dto.CitaDto;
 import com.example.quiropracticoapi.dto.CitaRequestDto;
 import com.example.quiropracticoapi.dto.HuecoDto;
+import com.example.quiropracticoapi.dto.ReprogramarCitaDto;
 import com.example.quiropracticoapi.model.enums.EstadoCita;
 import com.example.quiropracticoapi.service.CitaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -129,6 +130,14 @@ public class CitaController {
         return ResponseEntity.ok(citaService.updateCita(id, request));
     }
 
+    @Operation(summary = "Reprogramar cita (Drag & Drop)", description = "Actualización atómica y ligera de horario y/o quiropráctico para el calendario")
+    @PatchMapping("/{id}/reprogramar")
+    public ResponseEntity<CitaDto> reprogramarCita(
+            @PathVariable Integer id,
+            @Valid @RequestBody ReprogramarCitaDto dto) {
+        return ResponseEntity.ok(citaService.reprogramarCita(id, dto));
+    }
+
     // Cancelar Cita
     @Operation(summary = "Cancelar una cita", description = "Cambia el estado de la cita a 'cancelada'. No la borra de la base de datos.")
     @PutMapping("/{idCita}/cancelar")
@@ -151,9 +160,10 @@ public class CitaController {
     public ResponseEntity<List<HuecoDto>> getHuecos(
             @RequestParam Integer idQuiro,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
-            @RequestParam(required = false) Integer idCitaExcluir
+            @RequestParam(required = false) Integer idCitaExcluir,
+            @RequestParam(required = false) Integer duracionMinutos
     ) {
-        return ResponseEntity.ok(citaService.getHuecosDisponibles(idQuiro, fecha, idCitaExcluir));
+        return ResponseEntity.ok(citaService.getHuecosDisponibles(idQuiro, fecha, idCitaExcluir, duracionMinutos));
     }
 
     // --- MODO KIOSCO / FIRMA ---

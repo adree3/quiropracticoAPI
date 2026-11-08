@@ -1,8 +1,10 @@
 package com.example.quiropracticoapi.service.impl;
 
+import com.example.quiropracticoapi.dto.AgendaEventDto;
 import com.example.quiropracticoapi.dto.CitaDto;
 import com.example.quiropracticoapi.dto.CitaRequestDto;
 import com.example.quiropracticoapi.dto.HuecoDto;
+import com.example.quiropracticoapi.dto.ReprogramarCitaDto;
 import com.example.quiropracticoapi.exception.ResourceNotFoundException;
 import com.example.quiropracticoapi.mapper.CitaMapper;
 import com.example.quiropracticoapi.model.*;
@@ -27,9 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -51,6 +51,7 @@ public class CitaServiceImpl implements CitaService {
     private final SimpMessagingTemplate messagingTemplate;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
+    private final PagoRepository pagoRepository;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
 
     @Autowired
@@ -69,7 +70,8 @@ public class CitaServiceImpl implements CitaService {
                            DocumentoClienteRepository documentoClienteRepository,
                            SimpMessagingTemplate messagingTemplate,
                            org.springframework.context.ApplicationEventPublisher eventPublisher,
-                           PlatformTransactionManager transactionManager) {
+                           PlatformTransactionManager transactionManager,
+                           PagoRepository pagoRepository) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.usuarioRepository = usuarioRepository;
@@ -86,6 +88,7 @@ public class CitaServiceImpl implements CitaService {
         this.messagingTemplate = messagingTemplate;
         this.eventPublisher = eventPublisher;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.pagoRepository = pagoRepository;
     }
 
     @Override
@@ -119,7 +122,11 @@ public class CitaServiceImpl implements CitaService {
 
         eventPublisher.publishEvent(new com.example.quiropracticoapi.event.CitaCreadaEvent(citaGuardada.getIdCita()));
 
-        return citaMapper.toDto(citaGuardada);
+        CitaDto dto = citaMapper.toDto(citaGuardada);
+        enriquecerMetadatosFinancieros(citaGuardada, dto);
+        AgendaEventDto evento = new AgendaEventDto("CREATE", dto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
+        return dto;
     }
 
     private void validarDisponibilidad(Usuario quiro, CitaRequestDto request, Integer idCitaExcluir) {
@@ -230,6 +237,7 @@ public class CitaServiceImpl implements CitaService {
                 consumo.setClinica(cita.getClinica());
             }
             consumoBonoRepository.save(consumo);
+            cita.setConsumoBono(consumo);
 
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.CONSUMO,
@@ -247,15 +255,11 @@ public class CitaServiceImpl implements CitaService {
     @Transactional(readOnly = true)
     public List<CitaDto> getCitasPorFecha(LocalDate fecha) {
         log.info("[DEBUG-TENANT] Servicio: CitaServiceImpl | Agenda para fecha: {} | TenantContext: {}", fecha, com.example.quiropracticoapi.config.TenantContext.getTenantId());
-        List<Cita> citas=  citaRepository.findByFechaHoraInicioBetween(
+        List<Cita> citas = citaRepository.findByFechaHoraInicioBetween(
                 fecha.atStartOfDay(),
                 fecha.atTime(23, 59, 59)
         );
-        return citas.stream().map(c -> {
-            CitaDto dto = citaMapper.toDto(c);
-            llenarInfoPago(c, dto);
-            return dto;
-        }).collect(Collectors.toList());
+        return mapearYEnriquecerCitas(citas, true);
     }
 
     @Override
@@ -300,7 +304,13 @@ public class CitaServiceImpl implements CitaService {
             bonoActivoRepository.save(bono);
             // Usamos query JPQL directa para evitar conflicto con CascadeType.ALL en Cita -> ConsumoBono
             consumoBonoRepository.deleteByCitaIdCita(idCita);
+            cita.setConsumoBono(null);
         }
+
+        CitaDto dto = citaMapper.toDto(cita);
+        llenarInfoPago(cita, dto);
+        AgendaEventDto evento = new AgendaEventDto("DELETE", dto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
     }
 
     @Override
@@ -315,6 +325,7 @@ public class CitaServiceImpl implements CitaService {
     }
 
     @Override
+    @Transactional
     public CitaDto cambiarEstado(Integer idCita, EstadoCita nuevoEstado) {
         Cita cita = citaRepository.findById(idCita)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
@@ -354,6 +365,8 @@ public class CitaServiceImpl implements CitaService {
         );
         CitaDto dto = citaMapper.toDto(citaGuardada);
         llenarInfoPago(citaGuardada, dto);
+        AgendaEventDto evento = new AgendaEventDto("UPDATE", dto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
         return dto;
     }
 
@@ -405,6 +418,7 @@ public class CitaServiceImpl implements CitaService {
                     consumo.setClinica(cita.getClinica());
                 }
                 consumoBonoRepository.save(consumo);
+            cita.setConsumoBono(consumo);
 
                 cita.setIdBonoPreasignado(null);
                 
@@ -489,14 +503,33 @@ public class CitaServiceImpl implements CitaService {
         );
         CitaDto dto = citaMapper.toDto(actualizada);
         llenarInfoPago(actualizada, dto);
+        AgendaEventDto evento = new AgendaEventDto("UPDATE", dto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
         return dto;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir) {
+        return getHuecosDisponibles(idQuiro, fecha, idCitaExcluir, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HuecoDto> getHuecosDisponibles(Integer idQuiro, LocalDate fecha, Integer idCitaExcluir, Integer duracionMinutos) {
         List<HuecoDto> huecosLibres = new ArrayList<>();
-        int duracionCitaMinutos = 30;
+        Usuario quiro = usuarioRepository.findById(idQuiro).orElse(null);
+        Clinica clinica = quiro != null ? quiro.getClinica() : null;
+        int duracionPasoCursor = (clinica != null && clinica.getDuracionCitaMinutos() != null)
+                ? clinica.getDuracionCitaMinutos()
+                : 30;
+        if (duracionPasoCursor <= 0) {
+            duracionPasoCursor = 30;
+        }
+
+        int duracionVentana = (duracionMinutos != null && duracionMinutos > 0)
+                ? duracionMinutos
+                : duracionPasoCursor;
 
         int diaSemana = fecha.getDayOfWeek().getValue();
         List<Horario> horarios = horarioRepository.findByQuiropracticoIdUsuarioAndDiaSemana(idQuiro, (byte) diaSemana);
@@ -513,10 +546,10 @@ public class CitaServiceImpl implements CitaService {
         for (Horario turno : horarios) {
             LocalTime cursor = turno.getHoraInicio();
 
-            while (cursor.plusMinutes(duracionCitaMinutos).isBefore(turno.getHoraFin()) ||
-                    cursor.plusMinutes(duracionCitaMinutos).equals(turno.getHoraFin())) {
+            while (cursor.plusMinutes(duracionVentana).isBefore(turno.getHoraFin()) ||
+                    cursor.plusMinutes(duracionVentana).equals(turno.getHoraFin())) {
 
-                LocalTime finCita = cursor.plusMinutes(duracionCitaMinutos);
+                LocalTime finCita = cursor.plusMinutes(duracionVentana);
 
                 if (esHuecoValido(fecha, cursor, finCita, citasDelDia, bloqueosDelDia, idCitaExcluir)) {
                     huecosLibres.add(new HuecoDto(
@@ -526,7 +559,7 @@ public class CitaServiceImpl implements CitaService {
                     ));
                 }
 
-                cursor = cursor.plusMinutes(duracionCitaMinutos);
+                cursor = cursor.plusMinutes(duracionPasoCursor);
             }
         }
 
@@ -605,39 +638,251 @@ public class CitaServiceImpl implements CitaService {
             citas = citaRepository.findByFechaHoraInicioBetween(inicio, fin);
         }
 
+        return mapearYEnriquecerCitas(citas, true);
+    }
+
+    @Override
+    @Transactional
+    public CitaDto reprogramarCita(Integer idCita, ReprogramarCitaDto dto) {
+        if (dto.getFechaHoraInicio() == null || dto.getFechaHoraFin() == null) {
+            throw new IllegalArgumentException("Las fechas de inicio y fin son obligatorias.");
+        }
+        if (!dto.getFechaHoraFin().isAfter(dto.getFechaHoraInicio())) {
+            throw new IllegalArgumentException("La fecha y hora de fin debe ser posterior a la fecha y hora de inicio.");
+        }
+
+        Cita cita = citaRepository.findById(idCita)
+                .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada con ID: " + idCita));
+
+        if (cita.getEstado() == EstadoCita.cancelada) {
+            throw new IllegalStateException("No se puede reprogramar una cita en estado cancelada.");
+        }
+
+        Usuario quiroDestino = cita.getQuiropractico();
+        boolean cambioQuiro = false;
+        if (dto.getIdQuiropractico() != null && !dto.getIdQuiropractico().equals(quiroDestino.getIdUsuario())) {
+            quiroDestino = usuarioRepository.findById(dto.getIdQuiropractico())
+                    .orElseThrow(() -> new ResourceNotFoundException("Quiropráctico no encontrado con ID: " + dto.getIdQuiropractico()));
+            cambioQuiro = true;
+        }
+
+        // Valida disponibilidad / colisión: comprueba que el quiropráctico destino no tenga otra cita activa solapada
+        List<Cita> citasSolapadas = citaRepository.findCitasConflictivas(
+                quiroDestino.getIdUsuario(),
+                dto.getFechaHoraInicio(),
+                dto.getFechaHoraFin(),
+                idCita
+        );
+
+        if (!citasSolapadas.isEmpty()) {
+            throw new IllegalArgumentException("El quiropráctico ya tiene otra cita activa reservada en ese horario.");
+        }
+
+        // Valida bloqueos de agenda personales y de clínica
+        List<BloqueoAgenda> bloqueosPersonales = bloqueoAgendaRepository.findBloqueosPersonalesQueSolapan(
+                quiroDestino.getIdUsuario(), dto.getFechaHoraInicio(), dto.getFechaHoraFin()
+        );
+        List<BloqueoAgenda> bloqueosClinica = bloqueoAgendaRepository.findBloqueosClinicaQueSolapan(
+                dto.getFechaHoraInicio(), dto.getFechaHoraFin()
+        );
+        if (!bloqueosPersonales.isEmpty() || !bloqueosClinica.isEmpty()) {
+            throw new IllegalArgumentException("El horario seleccionado coincide con un bloqueo de agenda (vacaciones o festivo).");
+        }
+
+        LocalDateTime inicioAnterior = cita.getFechaHoraInicio();
+        LocalDateTime finAnterior = cita.getFechaHoraFin();
+
+        // Actualiza únicamente fechaHoraInicio, fechaHoraFin y (si cambió) quiropractico
+        cita.setFechaHoraInicio(dto.getFechaHoraInicio());
+        cita.setFechaHoraFin(dto.getFechaHoraFin());
+        if (cambioQuiro) {
+            cita.setQuiropractico(quiroDestino);
+        }
+
+        Cita guardada = citaRepository.save(cita);
+
+        // Registro de auditoría
+        String detalle = String.format("Cita reprogramada: [%s - %s] -> [%s - %s]%s",
+                inicioAnterior, finAnterior,
+                guardada.getFechaHoraInicio(), guardada.getFechaHoraFin(),
+                cambioQuiro ? " (Cambio de Quiropráctico a: " + quiroDestino.getNombreCompleto() + ")" : "");
+        auditoriaServiceImpl.registrarAccion(
+                TipoAccion.EDITAR,
+                "CITA",
+                idCita.toString(),
+                detalle
+        );
+
+        CitaDto responseDto = citaMapper.toDto(guardada);
+        enriquecerMetadatosFinancieros(guardada, responseDto);
+        AgendaEventDto evento = new AgendaEventDto("UPDATE", responseDto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
+        return responseDto;
+    }
+
+    private List<CitaDto> mapearYEnriquecerCitas(List<Cita> citas, boolean esVistaCalendario) {
+        if (citas == null || citas.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Integer> clienteIds = citas.stream()
+                .map(c -> c.getCliente() != null ? c.getCliente().getIdCliente() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Integer> clientesConDeuda = clienteIds.isEmpty() ? Collections.emptySet()
+                : pagoRepository.findClientesConDeudaPendiente(clienteIds);
+
+        Set<String> clienteFechasPagadas = obtenerClienteFechasPagadas(clienteIds);
+
+        Map<Integer, Integer> primerIdCitaMap = new HashMap<>();
+        if (!clienteIds.isEmpty()) {
+            List<Object[]> resultados = citaRepository.findPrimerIdCitaPorClientes(clienteIds);
+            for (Object[] row : resultados) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    primerIdCitaMap.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+                }
+            }
+        }
+
         return citas.stream().map(c -> {
             CitaDto dto = citaMapper.toDto(c);
-            llenarInfoPago(c, dto);
+            enriquecerMetadatosFinancieros(c, dto, clientesConDeuda, clienteFechasPagadas, primerIdCitaMap);
+
+            // Regla crítica de rendimiento: eliminar Base64 innecesarios en vistas de calendario
+            if (esVistaCalendario) {
+                dto.setFirmaBase64(null);
+                dto.setSignedPdfBase64(null);
+            }
+
             return dto;
         }).collect(Collectors.toList());
     }
 
-    private void llenarInfoPago(Cita cita, CitaDto dto) {
+    private void enriquecerMetadatosFinancieros(
+            Cita cita,
+            CitaDto dto,
+            Set<Integer> clientesConDeuda,
+            Set<String> clienteFechasPagadas,
+            Map<Integer, Integer> primerIdCitaMap) {
+
+        Integer idCliente = cita.getCliente() != null ? cita.getCliente().getIdCliente() : null;
+
+        // 1. Determinar si es Primera Visita
+        boolean esPrimera = false;
+        if (idCliente != null && primerIdCitaMap != null) {
+            Integer primerId = primerIdCitaMap.get(idCliente);
+            esPrimera = (primerId == null || (cita.getIdCita() != null && cita.getIdCita().equals(primerId)));
+        }
+        dto.setEsPrimeraVisita(esPrimera);
+
+        // 2. Determinar tipoPagoTag y pagada
         if (cita.getConsumoBono() != null) {
             ConsumoBono consumo = cita.getConsumoBono();
             BonoActivo bono = consumo.getBonoActivo();
-            String nombreBono = bono.getServicioComprado().getNombreServicio();
+            String nombreBono = bono != null && bono.getServicioComprado() != null
+                    ? bono.getServicioComprado().getNombreServicio()
+                    : "Bono";
 
             int restantesHistorico = consumo.getSesionesRestantesSnapshot() != null
                     ? consumo.getSesionesRestantesSnapshot()
-                    : bono.getSesionesRestantes();
+                    : (bono != null ? bono.getSesionesRestantes() : 0);
             String infoSaldo = " / quedan " + restantesHistorico;
 
-            if (bono.getCliente().getIdCliente().equals(cita.getCliente().getIdCliente())) {
-                dto.setInfoPago("Bono Propio (" + nombreBono  + infoSaldo+")");
-                // Es el propietario del bono
+            if (bono != null && bono.getCliente() != null && idCliente != null && bono.getCliente().getIdCliente().equals(idCliente)) {
+                dto.setInfoPago("Bono Propio (" + nombreBono + infoSaldo + ")");
+                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
+            } else if (bono != null && bono.getCliente() != null) {
+                dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
                 dto.setIdBonoCliente(bono.getCliente().getIdCliente());
             } else {
-                dto.setInfoPago("Bono de " + bono.getCliente().getNombre() + " (" + nombreBono + infoSaldo + ")");
-                // Es pagado por un familiar
-                dto.setIdBonoCliente(bono.getCliente().getIdCliente());
+                dto.setInfoPago("Bono (" + nombreBono + infoSaldo + ")");
             }
+
+            boolean bonoPagado = (bono != null && bono.getPagoOrigen() != null && bono.getPagoOrigen().isPagado());
+            dto.setPagada(bonoPagado);
+            dto.setTipoPagoTag(bonoPagado ? "BONO_ACTIVO" : "BONO_PENDIENTE");
+
         } else if (cita.getIdBonoPreasignado() != null) {
-            // No podemos consultar el repositorio en un bucle, así que indicamos que está preasignado.
             dto.setInfoPago("Bono Preasignado (Pendiente)");
+            dto.setPagada(false);
+            dto.setTipoPagoTag("BONO_PENDIENTE");
+
         } else {
-            dto.setInfoPago("Pago Directo / Sesión Suelta");
+            // Cita sin bono: Primera Visita o Sesión Suelta
+            if (esPrimera) {
+                dto.setTipoPagoTag("PRIMERA_VISITA");
+                dto.setInfoPago("Primera Visita");
+            } else {
+                dto.setTipoPagoTag("SESION_SUELTA");
+                dto.setInfoPago("Pago Directo / Sesión Suelta");
+            }
+
+            LocalDate fechaCita = cita.getFechaHoraInicio() != null ? cita.getFechaHoraInicio().toLocalDate() : null;
+            boolean tieneDeuda = idCliente != null && clientesConDeuda != null && clientesConDeuda.contains(idCliente);
+            boolean tienePagoMismaFecha = idCliente != null && fechaCita != null && clienteFechasPagadas != null
+                    && clienteFechasPagadas.contains(idCliente + "_" + fechaCita);
+
+            // Para citas sin bono, si hay deuda o si está programada y no tiene un pago realizado en la misma fecha, pagada = false
+            if (tieneDeuda) {
+                dto.setPagada(false);
+            } else if (cita.getEstado() == EstadoCita.programada && !tienePagoMismaFecha) {
+                dto.setPagada(false);
+            } else if (tienePagoMismaFecha) {
+                dto.setPagada(true);
+            } else {
+                dto.setPagada(false);
+            }
         }
+    }
+
+    private void enriquecerMetadatosFinancieros(Cita cita, CitaDto dto) {
+        if (cita.getCliente() == null) {
+            dto.setEsPrimeraVisita(false);
+            dto.setPagada(false);
+            dto.setTipoPagoTag("SESION_SUELTA");
+            return;
+        }
+
+        Integer idCliente = cita.getCliente().getIdCliente();
+        Set<Integer> clienteIds = Set.of(idCliente);
+
+        Set<Integer> conDeuda = pagoRepository.findClientesConDeudaPendiente(clienteIds);
+        Set<String> clienteFechasPagadas = obtenerClienteFechasPagadas(clienteIds);
+
+        List<Object[]> primerIds = citaRepository.findPrimerIdCitaPorClientes(clienteIds);
+        Map<Integer, Integer> primerMap = new HashMap<>();
+        for (Object[] row : primerIds) {
+            if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                primerMap.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+            }
+        }
+
+        enriquecerMetadatosFinancieros(cita, dto, conDeuda, clienteFechasPagadas, primerMap);
+    }
+
+    private Set<String> obtenerClienteFechasPagadas(Collection<Integer> clienteIds) {
+        if (clienteIds == null || clienteIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        List<Object[]> pagos = pagoRepository.findPagosRealizadosPorClientes(clienteIds);
+        Set<String> fechasPagadas = new HashSet<>();
+        for (Object[] row : pagos) {
+            if (row != null && row.length >= 3 && row[0] != null) {
+                Integer idCli = (Integer) row[0];
+                LocalDateTime fp = (LocalDateTime) row[1];
+                LocalDateTime fc = (LocalDateTime) row[2];
+                LocalDate fecha = (fp != null) ? fp.toLocalDate() : (fc != null ? fc.toLocalDate() : null);
+                if (fecha != null) {
+                    fechasPagadas.add(idCli + "_" + fecha);
+                }
+            }
+        }
+        return fechasPagadas;
+    }
+
+    private void llenarInfoPago(Cita cita, CitaDto dto) {
+        enriquecerMetadatosFinancieros(cita, dto);
     }
     @Override
     public CitaDto procesarFirma(Integer idCita, String base64Firma) {
@@ -682,6 +927,9 @@ public class CitaServiceImpl implements CitaService {
         payload.put("action", "CITA_FIRMADA");
         payload.put("idCita", idCita);
         messagingTemplate.convertAndSend("/topic/citas", payload);
+
+        AgendaEventDto evento = new AgendaEventDto("UPDATE", dto);
+        messagingTemplate.convertAndSend("/topic/agenda", evento);
 
         return dto;
     }

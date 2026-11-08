@@ -80,7 +80,7 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param fechaFin segunda fecha
      * @return lista de citas
      */
-    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente", "consumoBono.bonoActivo.pagoOrigen"})
     List<Cita> findByQuiropracticoIdUsuarioAndFechaHoraInicioBetween(Integer quiropracticoId, LocalDateTime fechaInicio, LocalDateTime fechaFin);
 
     /**
@@ -89,8 +89,13 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
      * @param fechaFin segunda fecha
      * @return lista de citas
      */
-    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente"})
+    @EntityGraph(attributePaths = {"cliente", "quiropractico", "consumoBono", "consumoBono.bonoActivo", "consumoBono.bonoActivo.servicioComprado", "consumoBono.bonoActivo.cliente", "consumoBono.bonoActivo.pagoOrigen"})
     List<Cita> findByFechaHoraInicioBetween(LocalDateTime fechaInicio, LocalDateTime fechaFin);
+
+    @Query("SELECT c.cliente.idCliente, MIN(c.idCita) FROM Cita c " +
+           "WHERE c.cliente.idCliente IN :clienteIds AND c.estado != com.example.quiropracticoapi.model.enums.EstadoCita.cancelada " +
+           "GROUP BY c.cliente.idCliente")
+    List<Object[]> findPrimerIdCitaPorClientes(@Param("clienteIds") java.util.Collection<Integer> clienteIds);
 
     /**
      * Busca cita que se solapen con el rango propuesto. Ignorando las cancelada
