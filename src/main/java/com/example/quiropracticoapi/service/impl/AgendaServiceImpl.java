@@ -14,6 +14,7 @@ import com.example.quiropracticoapi.service.AgendaService;
 import com.example.quiropracticoapi.service.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +38,7 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
+    @Transactional
     public BloqueoAgendaDto crearBloqueo(BloqueoAgendaDto dto, boolean force) {
         if (dto.getFechaFin().isBefore(dto.getFechaInicio())) {
             throw new IllegalArgumentException("La fecha fin no puede ser anterior a la de inicio.");
@@ -165,19 +167,21 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<BloqueoAgendaDto> getAllBloqueos() {
-        return bloqueoAgendaRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "fechaHoraInicio"))
+        return bloqueoAgendaRepository.findAllWithUsuario()
                 .stream()
                 .map(this::mapBloqueoToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional
     public void borrarBloqueo(Integer id) {
         BloqueoAgenda b = bloqueoAgendaRepository.findById(id).orElse(null);
-        bloqueoAgendaRepository.deleteById(id);
         if (b != null) {
-            String afectado = (b.getUsuario() != null) ?  b.getUsuario().getUsername() : "CLÍNICA";
+            String afectado = (b.getUsuario() != null) ? b.getUsuario().getUsername() : "CLÍNICA";
+            bloqueoAgendaRepository.delete(b);
             auditoriaServiceImpl.registrarAccion(
                     TipoAccion.ELIMINAR_FISICO,
                     "BLOQUEO_AGENDA",
@@ -189,6 +193,7 @@ public class AgendaServiceImpl implements AgendaService {
     }
 
     @Override
+    @Transactional
     public BloqueoAgendaDto actualizarBloqueo(Integer id, BloqueoAgendaDto dto) {
         BloqueoAgenda bloqueo = bloqueoAgendaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bloqueo no encontrado"));

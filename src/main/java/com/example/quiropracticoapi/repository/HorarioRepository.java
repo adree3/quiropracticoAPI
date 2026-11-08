@@ -2,6 +2,7 @@ package com.example.quiropracticoapi.repository;
 
 import com.example.quiropracticoapi.model.Horario;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
@@ -24,5 +25,6 @@ public interface HorarioRepository extends JpaRepository<Horario, Integer> {
      */
     List<Horario> findByQuiropracticoIdUsuarioAndDiaSemana(Integer quiropracticoId, Byte diaSemana);
 
+    @Query("SELECT h FROM Horario h LEFT JOIN FETCH h.quiropractico WHERE h.quiropractico.activo = true")
     List<Horario> findByQuiropracticoActivoTrue();
 }

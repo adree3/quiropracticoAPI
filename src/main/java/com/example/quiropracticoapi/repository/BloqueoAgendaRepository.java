@@ -113,4 +113,7 @@ public interface BloqueoAgendaRepository extends JpaRepository<BloqueoAgenda, In
             @Param("inicio") LocalDateTime inicio,
             @Param("fin") LocalDateTime fin
     );
+
+    @Query("SELECT b FROM BloqueoAgenda b LEFT JOIN FETCH b.usuario ORDER BY b.fechaHoraInicio ASC")
+    List<BloqueoAgenda> findAllWithUsuario();
 }

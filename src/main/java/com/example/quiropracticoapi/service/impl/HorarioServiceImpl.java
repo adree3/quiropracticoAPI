@@ -33,6 +33,7 @@ public class HorarioServiceImpl implements HorarioService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HorarioGlobalDto> getAllHorariosActivos() {
         List<Horario> horarios = horarioRepository.findByQuiropracticoActivoTrue();
         return horarios.stream().map(h -> {
@@ -47,6 +48,7 @@ public class HorarioServiceImpl implements HorarioService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HorarioDto> getHorariosByQuiropractico(Integer idQuiro) {
         return horarioRepository.findByQuiropracticoIdUsuario(idQuiro).stream()
                 .map(this::toDto)
@@ -132,16 +134,20 @@ public class HorarioServiceImpl implements HorarioService {
 
 
     @Override
+    @Transactional
     public void deleteHorario(Integer idHorario) {
         Horario h = horarioRepository.findById(idHorario)
                 .orElseThrow(() -> new ResourceNotFoundException("Horario no encontrado"));
-        horarioRepository.deleteById(idHorario);
         String diaSemanaStr = convertirDiaSemana(h.getDiaSemana());
+        String nombreQuiro = (h.getQuiropractico() != null) ? h.getQuiropractico().getNombreCompleto() : "Desconocido";
+
+        horarioRepository.delete(h);
+
         auditoriaServiceImpl.registrarAccion(
                 TipoAccion.ELIMINAR_FISICO,
                 "HORARIO",
                 idHorario.toString(),
-                "Turno eliminado de: " + h.getQuiropractico().getNombreCompleto() +
+                "Turno eliminado de: " + nombreQuiro +
                         ". Era el día: " + diaSemanaStr + " de " + h.getHoraInicio() + " a " + h.getHoraFin()
         );
     }
