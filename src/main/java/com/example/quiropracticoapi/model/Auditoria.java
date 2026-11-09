@@ -1,6 +1,7 @@
 package com.example.quiropracticoapi.model;
 
 import com.example.quiropracticoapi.model.enums.TipoAccion;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
@@ -28,6 +29,7 @@ public class Auditoria {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idAuditoria;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "clinica_id", nullable = true)
     private Clinica clinica;

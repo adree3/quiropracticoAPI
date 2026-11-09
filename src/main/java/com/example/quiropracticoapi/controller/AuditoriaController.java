@@ -47,8 +47,8 @@ public class AuditoriaController {
             @RequestParam(required = false) String entidad,
             @RequestParam(required = false) String accion,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "fechaHora") String sortBy,
@@ -60,7 +60,7 @@ public class AuditoriaController {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         return ResponseEntity.ok(
-                auditoriaServiceImpl.obtenerLogs(entidad, accion, search, fechaDesde, fechaHasta, pageable)
+                auditoriaServiceImpl.obtenerLogs(entidad, accion, search, fechaInicio, fechaFin, pageable)
         );
     }
 }
